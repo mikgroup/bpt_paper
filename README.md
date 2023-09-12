@@ -8,8 +8,13 @@ This notebook reproduces the figures and processing from the manuscript "Beat Pi
 Author of this demo: [Suma Anand](https://people.eecs.berkeley.edu/~sanand/), sanand@berkeley.edu
 
 ## Instructions
+
+### Method 1: Google Colab (recommended!)
 To run this notebook in Google Colab, click on the "Open in Colab" icon and run all the cells.
-Otherwise, clone the repo, install the conda environment and launch Jupyter Lab:
+
+### Method 2: Clone and install conda environment
+This method requires having conda installed. 
+To run the notebook locally, clone the repo, install the conda environment and launch Jupyter Lab:
 
 ```
 git clone https://github.com/mikgroup/bpt_paper.git
@@ -18,3 +23,4 @@ conda activate bpt_paper_env
 jupyter lab
 
 ```
+Then, you can run through all the cells EXCEPT for the first one, which is required only for Google Colab.
