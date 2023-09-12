@@ -9,10 +9,12 @@ Author of this demo: [Suma Anand](https://people.eecs.berkeley.edu/~sanand/), sa
 
 ## Instructions
 To run this notebook in Google Colab, click on the "Open in Colab" icon and run all the cells.
-Otherwise, install the conda environment and launch Jupyter Lab:
+Otherwise, clone the repo, install the conda environment and launch Jupyter Lab:
 
 ```
+git clone https://github.com/mikgroup/bpt_paper.git
 conda env create -f bpt_paper_env.yml
+conda activate bpt_paper_env
 jupyter lab
 
 ```
