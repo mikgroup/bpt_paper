@@ -10,7 +10,9 @@ Author of this code: [Suma Anand](https://people.eecs.berkeley.edu/~sanand/), sa
 ## Instructions
 
 ### Method 1: Google Colab (recommended!)
-To run this notebook in Google Colab, click on the "Open in Colab" icon and run all the cells.
+To run this notebook in Google Colab, click on [this link](https://colab.research.google.com/github/mikgroup/bpt_paper/blob/main/figure_plotting.ipynb).
+Alternatively, you can double click on the notebook in your browser and click on the "Open in Colab" icon.
+After you've opened the notebook, run all the cells.
 
 ### Method 2: Clone and install conda environment
 This method requires having conda installed. 
