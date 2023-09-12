@@ -29,3 +29,4 @@ jupyter lab
 
 ```
 Then, you can run through all the cells EXCEPT for the first one, which is required only for Google Colab.
+Note: Method 2 may fail on Mac or Windows; it has been tested on a Linux machine running Ubuntu 20.04.6 LTS. 
