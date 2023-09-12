@@ -5,6 +5,8 @@
 
 The notebook <code>figure_plotting.ipynb</code> reproduces the figures and processing from the manuscript "Beat Pilot Tone: Simultaneous Radio-Frequency Motion Sensing and Imaging at Arbitrary Frequencies in MRI" submitted to Magnetic Resonance in Medicine.
 
+A preprint of this paper is on [arXiv](https://arxiv.org/abs/2306.10236). 
+
 Author of this code: [Suma Anand](https://people.eecs.berkeley.edu/~sanand/), sanand@berkeley.edu
 
 ## Instructions
