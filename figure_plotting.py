@@ -418,7 +418,7 @@ def plot_vibration(pt_mag_mat, t_starts, f_combined, period=12, tr=4.3e-3,
                    figsize=(10,10), lw=2,
                    cutoffs=[1,1,1,5,5,5]):
     # Plot
-    fig, ax = plt.subplots(nrows=3, ncols=3, figsize=figsize)
+    fig, ax = plt.subplots(nrows=2, ncols=3, figsize=figsize)
     axs = ax.flatten()
 
     # Plot all signals
@@ -490,11 +490,9 @@ def plot_accel_comparison(pt_mag, accel_d, coil_inds=np.arange(16,20), start_tim
         print(Line)
         lines.extend(Line)
         labels.extend(Label)
-    # print(lines)
     legendfig = plt.figure()
     legendfig.legend(lines[:len(coil_inds)+1], labels[:len(coil_inds)+1], loc='center')
-    
-    
+    plt.show()
     
     
 def plot_pca_combined(pt_pcas, tr=4.4e-3, save=True, figsize=(10,10), colorbar=False):
