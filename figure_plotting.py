@@ -438,9 +438,7 @@ def plot_vibration(pt_mag_mat, t_starts, f_combined, period=12, tr=4.3e-3,
         
         axs[i].set_yticks([])
         axs[i].set_title(str(f_combined[i]) + "MHz")
-        if i > 2 and nrows == 2:
-            axs[i].set_xlabel("Time (s)")
-        elif nrows == 1:
+        if i > 2:
             axs[i].set_xlabel("Time (s)")
     plt.show()
 
