@@ -3,9 +3,9 @@
 
 <sup>1</sup> University of California, Berkeley
 
-This notebook reproduces the figures and processing from the manuscript "Beat Pilot Tone: Simultaneous Radio-Frequency Motion Sensing and Imaging at Arbitrary Frequencies in MRI" submitted to Magnetic Resonance in Medicine.
+The notebook <code>figure_plotting.ipynb</code> reproduces the figures and processing from the manuscript "Beat Pilot Tone: Simultaneous Radio-Frequency Motion Sensing and Imaging at Arbitrary Frequencies in MRI" submitted to Magnetic Resonance in Medicine.
 
-Author of this demo: [Suma Anand](https://people.eecs.berkeley.edu/~sanand/), sanand@berkeley.edu
+Author of this code: [Suma Anand](https://people.eecs.berkeley.edu/~sanand/), sanand@berkeley.edu
 
 ## Instructions
 
@@ -18,6 +18,7 @@ To run the notebook locally, clone the repo, install the conda environment and l
 
 ```
 git clone https://github.com/mikgroup/bpt_paper.git
+cd bpt_paper
 conda env create -f bpt_paper_env.yml
 conda activate bpt_paper_env
 jupyter lab
