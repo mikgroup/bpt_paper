@@ -340,9 +340,9 @@ def plot_flux(flux_plot, pos, xlims, f_combined, mirror=True, fig=None, ax=None,
         else:
             axs[i].plot(pos[n_start:n_end], plot_data_mod, label=fname)
             
-        # Reset labels
+        # # Reset labels
         axs[i].yaxis.set_major_locator(plt.MaxNLocator(5))
-        axs[i].set_xticks([0,10,20], labels=[0,10,0])
+        # axs[i].set_xticks([0,10,20], labels=[0,10,0])
         axs[i].set_title(str(f_combined[i]) + " MHz")
         if i < 3:
             axs[i].set_xticks([])
@@ -368,7 +368,8 @@ def plot_sim(inpdir, xlims=[0,10], mirror=True, figsize=(12,5)):
     
 def plot_meas_data(pt_mag, f_combined, figsize=(12,5), c=np.array([9,8,10]), tr=4.3e-3):
     # Plot experimental data
-    T = 100/13 * 2 + 0.5 # period, seconds
+    # T = 100/13 * 2 + 0.5 # period, seconds
+    T = 100/13
     
     # Manually define start times
     t_starts = np.flip(np.array([3.89, 1.212,
@@ -377,9 +378,6 @@ def plot_meas_data(pt_mag, f_combined, figsize=(12,5), c=np.array([9,8,10]), tr=
 
 
     tlims = np.array([[t_starts[i], t_starts[i] + T] for i in range(len(t_starts))])
-    
-    # Load data
-    # pt_mag = np.real(cfl.readcfl(os.path.join(inpdir, "pt_mag")))
 
     # Plot magnitude
     fig, ax = plt.subplots(nrows=2, ncols=3, figsize=figsize)
@@ -396,7 +394,8 @@ def plot_meas_data(pt_mag, f_combined, figsize=(12,5), c=np.array([9,8,10]), tr=
         # Get percent mod
         plot_data = pt_mag[i,:,c].T
         plot_data_mod = (plot_data[n_start:n_end,...]/np.mean(plot_data[n_start:n_end,...], axis=0) - 1)*100
-        xpos = np.linspace(0,20,plot_data_mod.shape[0])
+        # xpos = np.linspace(0,20,plot_data_mod.shape[0])
+        xpos = np.linspace(0,10,plot_data_mod.shape[0])
         
         # Plot
         axs[i].plot(xpos, plot_data_mod)
@@ -404,7 +403,8 @@ def plot_meas_data(pt_mag, f_combined, figsize=(12,5), c=np.array([9,8,10]), tr=
         axs[i].yaxis.set_major_locator(plt.MaxNLocator(5))
 
         # Reset label
-        axs[i].set_xticks([0,10,20], labels=[0,10,0])
+        # axs[i].set_xticks([0,10,20], labels=[0,10,0])
+        axs[i].set_xticks([0,5,10])
 
         if i < 3:
             axs[i].set_xticks([])
@@ -435,7 +435,6 @@ def plot_vibration(pt_mag_mat, t_starts, f_combined, period=12, tr=4.3e-3,
             line = axs[i].plot(t, (pt - np.mean(pt)) + shift*idx, label = "Coil {}".format(c-16), lw=lw)
 
         axs[i].set_xlim([0, period])
-        
         axs[i].set_yticks([])
         axs[i].set_title(str(f_combined[i]) + "MHz")
         if i > 2:
@@ -1040,3 +1039,14 @@ def plot_supp_fig(inpdir, c=7, tr=3.1e-3, labels = ["PT", "BPT"], ylabels = ["Mo
                 ax[j].set_xlabel("Time (s)")
             ax[j].set_title(titles[j])
             ax[j].legend()
+            
+            
+def plot_imd(inpdir, fname, figsize=(8,5)):
+    ''' Plot ADS sim results '''
+    f = proc.load_csv(inpdir, fname)[1:,:].astype(np.float64)
+    p_in, p_out = f.T
+    plt.figure(figsize=figsize)
+    plt.plot(p_in, p_out)
+    plt.xlabel("Input Power (dBm)")
+    plt.ylabel("IMD Power (dBm)")
+    plt.title("IMD Power vs Input Power for Passive Simulation")
