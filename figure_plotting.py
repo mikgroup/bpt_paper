@@ -1041,12 +1041,22 @@ def plot_supp_fig(inpdir, c=7, tr=3.1e-3, labels = ["PT", "BPT"], ylabels = ["Mo
             ax[j].legend()
             
             
-def plot_imd(inpdir, fname, figsize=(8,5)):
+def plot_imd(inpdir, fname, figsize=(8,5), plot_range=[-25,20]):
     ''' Plot ADS sim results '''
     f = proc.load_csv(inpdir, fname)[1:,:].astype(np.float64)
     p_in, p_out = f.T
+
+    # Restrict range
+    start, end = plot_range
+    start_ind = np.where(p_in==start)[0][0]
+    end_ind = np.where(p_in==end)[0][0]
+    x = p_in[start_ind:end_ind]
+    y = p_out[start_ind:end_ind]
+
+    # Plot
     plt.figure(figsize=figsize)
-    plt.plot(p_in, p_out)
+    plt.plot(x, y, '-o')
     plt.xlabel("Input Power (dBm)")
     plt.ylabel("IMD Power (dBm)")
+    plt.yticks(np.linspace(np.amin(y), np.amax(y),5).astype(int))
     plt.title("IMD Power vs Input Power for Passive Simulation")
