@@ -167,27 +167,29 @@ def get_sorted_list(fld_list):
     freqs = freqs[fld_inds]
     return fld_list_sort, freqs
 
-def plot_rect(axs, w=10, h=19, overlap=0.5, n_rect=3):
+def plot_rect(axs, width=14, height=10, overlap=[6,3], n_rect=3, lw=7):
     ''' Plot rectangular coils on axes '''
     # Rectangular coil overlay
-    x_start = np.array([-1.5*w + overlap,0.5*w - overlap,-0.5*w])
-    y_start = np.array([0,0,h/2]) - h/2
-    z_start = np.array([0,0,0])
-
-    colors = ["tab:blue","tab:green","tab:orange"]
+    start_points = [[-3/2*width + overlap[0], -3/2*height + overlap[1]],
+                    [-3/2*width + overlap[0], 1/2*height - overlap[1]],
+                     [-width/2, -height/2]]
+    colors = ["tab:blue", "tab:green", "tab:orange"] # For correct overlapping
 
     # Plot rectangles
-    for j in range(2):
+    for j in range(2): # Loop over subplots
         # Vertical lines 
         axs[j].axvline(0, c='w', ls='--')
-        axs[j].axvline(10+h, c='w', ls='--')
-        for i in range(n_rect):
+        axs[j].axvline(10, c='w', ls='--')
+        
+        for i in range(n_rect): # Loop over ciol
             rgb_color = mcolors.to_rgba(colors[i])
-            rect = matplotlib.patches.Rectangle((y_start[i], x_start[i]), h, w, color=colors[i])
+            rect = matplotlib.patches.Rectangle(start_points[i], width, height, color=colors[i])
+            
             # Set transparent face color with colored edges and linewidth 
             rect.set_facecolor(list(rgb_color[:-1]) + [0]) # Make transparent
             rect.set_edgecolor(list(rgb_color[:-1]) + [1]) # Make opaque
-            rect.set_linewidth(7)
+            rect.set_linewidth(lw)
+            
             # Add the patch to the axes
             axs[j].add_patch(rect)
     
@@ -212,7 +214,7 @@ def plot_fields(H,x,y,z,plane="xy", cmap="jet", marker=".", fig=None, ax=None, f
     ax.set_ylim(ylim)
     ax.set_title(title)
 
-def plot_field_w_coils(inpdir, figsize=(16.7,5), xlim=[-45,35], ylim=[-35,35]):
+def plot_field_w_coils(inpdir, figsize=(16.7,5), xlim=[-45,35], ylim=[-35,35], lw=7):
     ''' Plot fields at 127.8MHz and 2.4GHz with rectangular coils overlaid '''
     fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=2)
     axs = ax.flatten()
@@ -240,7 +242,7 @@ def plot_field_w_coils(inpdir, figsize=(16.7,5), xlim=[-45,35], ylim=[-35,35]):
                     clim=95)
 
     # Plot rectangle overlay
-    plot_rect(axs, w=10, h=19, overlap=0.5, n_rect=3)
+    plot_rect(axs, width=14, height=10, overlap=[6,3], n_rect=3, lw=lw)
     
     
 def load_rocker_data(rocker_dir, experiment_list, cutoff=5, N=2, tr=4.3e-3):
