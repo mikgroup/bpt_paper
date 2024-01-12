@@ -173,7 +173,7 @@ def plot_rect(axs, width=14, height=10, overlap=[6,3], n_rect=3, lw=7):
     start_points = [[-3/2*width + overlap[0], -3/2*height + overlap[1]],
                     [-3/2*width + overlap[0], 1/2*height - overlap[1]],
                      [-width/2, -height/2]]
-    colors = ["tab:blue", "tab:green", "tab:orange"] # For correct overlapping
+    colors = ["tab:green", "tab:blue", "tab:orange"] # For correct overlapping
 
     # Plot rectangles
     for j in range(2): # Loop over subplots
