@@ -122,6 +122,35 @@ def load_rocker_data(rocker_dir, experiment_list, tr_dict=None, cutoff=1):
     
     return pt_mag
 
+def get_overlaid_data(pt_mag, t_starts, tr=4.3e-3, nperiods=6, buffer=0.3):
+    # Segment data by period
+    T = 2*100 / 13
+    c = np.array([12, 11, 13]) # Coil arrays
+    N = int(np.ceil(T/tr))
+    t = np.arange(pt_mag.shape[1])*tr
+    tlims = np.array([[t_starts[i], t_starts[i] + T] for i in range(len(t_starts))])
+
+    data_all = np.empty((nperiods, len(t_starts), N, len(c))) # [nperiods, nfreqs, npoints, ncoils]
+    for i in range(len(t_starts)):
+        t_start, t_end = tlims[i]
+
+        for j in range(nperiods):
+            n_start = np.where(np.logical_and((t >= t_start), t <= t_start + 2*tr))[0][0]
+            n_end = n_start + N
+
+            # Get percent mod
+            plot_data = pt_mag[i, :, c].T
+            plot_data_mod = (plot_data[n_start:n_end, ...] / np.mean(plot_data[n_start:n_end, ...], axis=0) - 1) * 100
+
+            # Put in array
+            data_all[j,i,...] = plot_data_mod
+
+            # Increment start and end
+            t_start += T + buffer
+            t_end += T + buffer
+            
+    return data_all
+
 def load_csv(inpdir, fname):
     ''' Load csv as np array. Will return as strings if there are any strings '''
     data = []
@@ -140,6 +169,27 @@ def get_f_combined(freqs=None):
     f_combined = np.insert(f_combined, 0, freqs[0])
     f_combined = np.round(f_combined*1e3,2)
     return f_combined
+
+
+def load_phantom_flux(inpdir, fname_prefix, Npoints=81, ncoils=3):
+    ''' Load flux for all coils '''
+    # Get size and number of points
+    fname = fname_prefix + "_{}.csv".format(0)
+    flux, freqs, pos = get_phantom_flux(inpdir, fname, Npoints=Npoints)
+    f_combined = get_f_combined(freqs)
+    nfreqs = len(f_combined)
+
+    # Loop over all coils
+    flux_all = np.empty((ncoils, nfreqs, Npoints))
+    pos_all = np.empty((ncoils, Npoints))
+    for i in range(ncoils):
+        fname = fname_prefix + "_{}.csv".format(i)
+        flux, freqs, pos = get_phantom_flux(inpdir, fname, Npoints=Npoints)
+        flux_mult_mag, flux_mult_ph = get_phantom_flux_mult(flux, freqs)
+        flux_all[i,...] = flux_mult_mag
+        pos_all[i,...] = pos
+        
+    return flux_all, pos_all, f_combined
 
 def get_phantom_flux(inpdir, fname, Npoints=16):
     ''' Load flux from array of coils '''

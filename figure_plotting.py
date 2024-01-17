@@ -290,34 +290,34 @@ def mirror_signal(signal):
     sig_cat = np.concatenate((signal, sig_flip))
     return sig_cat
 
-def get_phantom_flux(inpdir, fname, Npoints=16):
-    ''' Load flux from array of coils '''
-    data = load_csv(inpdir, fname)
-    data_vals = data[:,[0,2,3]].astype(float)
-    data_re = data_vals[::2]
-    data_im = data_vals[1::2]
 
-    # Separate by freqs
-    freqs = data_re[:,0][::Npoints] # MHz
-    pos = data_vals[:,1][::2][:Npoints]*0.1 # cm
-    Nfreqs = len(freqs)
+def plot_flux_all(pos_all, flux_all, f_combined):
+    ''' Plot flux over all frequencies and coils '''
+    # Plot simulated data
+    fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(12,5))
+    axs = ax.flatten()
 
-    flux_re = np.array([data_re[i*Npoints:(i+1)*Npoints,...] for i in range(Nfreqs)])
-    flux_im = np.array([data_im[i*Npoints:(i+1)*Npoints,...] for i in range(Nfreqs)])
-    flux_all = flux_re + 1j*flux_im # Nfreqs, Npoints, 3
-    
-    flux = flux_all[:,:,-1] # Nfreqs, Npoints
-    return flux, freqs, pos
+    # Loop over freqs
+    data_mod = np.empty((flux_all.shape))
+    for i in range(len(axs)):
+        for c in range(flux_all.shape[0]):
+            # Get percent mod
+            plot_data = flux_all[c,i,...]
+            plot_data_mod = (plot_data/np.mean(plot_data) - 1)*100
+            data_mod[c,i,...] = plot_data_mod
 
-def get_phantom_flux_mult(flux, freqs):
-    ''' Multiply flux '''
-    Nfreqs = flux.shape[0]
-    flux_mult_mag = np.array([np.abs(flux[i,:]) * np.abs(flux[i+1,:]) for i in range(1,Nfreqs,2)])
-    flux_mult_mag = np.insert(flux_mult_mag, 0, np.abs(flux[0,:]), axis=0)
-    
-    # Get combined freqs
-    return flux_mult_mag
+            # Plot
+            xpos = np.linspace(0,20,plot_data_mod.shape[0]*2)
+            axs[i].plot(xpos, mirror_signal(plot_data_mod))
 
+        # Reset labels
+        axs[i].set_yticks(np.linspace(np.amin(data_mod[:,i,:]), np.amax(data_mod[:,i,:]), 4).astype(int))
+        axs[i].set_xticks([0,10,20], labels=[0,10,0])
+        axs[i].set_title(str(f_combined[i]) + " MHz")
+        if i < 3:
+            axs[i].set_xticks([])
+            
+            
 def plot_flux(flux_plot, pos, xlims, f_combined, mirror=True, fig=None, ax=None, figsize=(10,10), fname="sim"):
     x_start, x_end = xlims
     # Mag and phase
@@ -349,11 +349,8 @@ def plot_flux(flux_plot, pos, xlims, f_combined, mirror=True, fig=None, ax=None,
         if i < 3:
             axs[i].set_xticks([])
             
-def plot_sim(inpdir, xlims=[0,10], mirror=True, figsize=(12,5)):
-    # Load simulated data
-    fname = "log_periodic_pa_{}.csv".format(0)
-    flux, freqs, pos = proc.get_phantom_flux(inpdir, fname, Npoints=81*4)
-    flux_mult_mag, flux_mult_ph = proc.get_phantom_flux_mult(flux, freqs)
+def plot_sim(flux_mult_mag, freqs, xlims=[0,10], mirror=True, figsize=(12,5)):
+    # Get combined frequency
     f_combined = proc.get_f_combined(freqs)
              
     ncoils = 3
@@ -364,6 +361,32 @@ def plot_sim(inpdir, xlims=[0,10], mirror=True, figsize=(12,5)):
         flux_mult_mag, flux_mult_ph = proc.get_phantom_flux_mult(flux, freqs)
         # Plot only magnitude
         plot_flux(flux_mult_mag, pos, xlims, f_combined, mirror=mirror, fig=fig, ax=ax, figsize=(20,10))
+
+    # Adjust spacing
+    plt.subplots_adjust(bottom=0.15, wspace=0.3, hspace=0.2)
+    
+
+def plot_overlaid_data(data_all, f_combined, error_samp=400):
+    ''' Plot data overlaid from multiple periods '''
+    # Plot experimental data
+    xpos = np.linspace(0, 10, data_all.shape[-2])
+    mask = np.arange(len(xpos)) % error_samp == 0
+    fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(12,5))
+    axs = ax.flatten()
+    for i in range(data_all.shape[1]):
+        for c in range(data_all.shape[-1]):
+            err = np.var(data_all[:,i,:,c], axis=0)
+            mean = np.mean(data_all[:,i,:,c], axis=0)
+            axs[i].plot(xpos,mean)
+            axs[i].errorbar(x=xpos[mask], y=mean[mask], yerr=err[mask], fmt='', linestyle='', c='r',lw=1,)
+
+        # Set formatting
+        axs[i].set_title(str(f_combined[i]) + " MHz")
+        axs[i].set_yticks(np.linspace(np.amin(data_all[:,i,:,:]), np.amax(data_all[:,i,:,:]), 4).astype(int))
+        # Reset label
+        axs[i].set_xticks([0,5,10], labels=[0,10,0])
+        if i < 3:
+            axs[i].set_xticks([])
 
     # Adjust spacing
     plt.subplots_adjust(bottom=0.15, wspace=0.3, hspace=0.2)
@@ -736,6 +759,10 @@ def plot_raw_cardiac(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 
 
     for i in range(len(outdir_list)):
         pt_mag = np.abs(np.squeeze(cfl.readcfl(os.path.join(inpdir, outdir_list[i],"pt_ravel"))))
+        
+        # Select PT instead of BPT
+        
+        
         tr = trs[i]
         # Sort indices by max energy in cardiac frequency band
         energy, idx = proc.get_max_energy(pt_mag, tr, f_range=[1,15])
