@@ -560,3 +560,33 @@ def lin_correct_all_phases(bpt_inp, corr_drift=True, demean=True):
             else:
                 bpt_corr[:,i] = b - (xx*coeffs[1])
     return bpt_corr
+
+
+def load_bpt_accel(inpdir, folder_list, tr=8.7e-3, c=17, int_cutoff=3, filter_cutoff=5, t_starts=[2.57, 2.9, 1.89], T=12):
+    ''' Load BPT and accelerometer data into a matrix '''
+    # Convert time to index
+    n_starts = (np.array(t_starts) * 1/tr).astype(int)
+    Nsamp = int(T/tr)
+    n_ends = n_starts + Nsamp
+    
+    # Load data matrix - BPT-1.8, BPT-2.4, accel
+    data_mat = np.empty((Nsamp,3))
+    for i, folder in enumerate(folder_list):
+        if i < 2:
+            # Get filtered BPT
+            pt_obj = run.load_bpt_mag_phase(os.path.join(inpdir,folder),
+                                    tr=tr,
+                                    lpfilter=True,
+                                    cutoff=filter_cutoff,
+                                   threshold=0.7)
+            npts, nro, ncoils = pt_obj.dims
+            pt_mag = np.squeeze(pt_obj.pt_mag_filtered)
+            data = pt_mag[n_starts[i]:n_ends[i],c]
+        else: # Accelerometer
+            accel, t = get_accel_data(os.path.join(inpdir, folder), fname=None)
+            accel_d = get_accel_d(accel, tr=tr, cutoff=int_cutoff, get_v=False)
+            data = accel_d[n_starts[-1]:n_ends[-1],2]
+        
+        data_mat[...,i] = data
+        
+    return data_mat

@@ -1089,3 +1089,15 @@ def plot_imd(inpdir, fname, figsize=(8,5), plot_range=[-25,20]):
     plt.ylabel("IMD Power (dBm)")
     plt.yticks(np.linspace(np.amin(y), np.amax(y),5).astype(int))
     plt.title("IMD Power vs Input Power for Passive Simulation")
+    
+    
+def plot_bpt_accel(data_mat, tr=8.7e-3, figsize=(10,5), shifts=[-1,-2,-1], scales=[1,2,0.5]):
+    ''' Plot BPT at 1.8 and 2.4GHz vs accelerometer vibration '''
+    colors = ["tab:brown", "tab:pink", "tab:purple"]
+    fig, ax = plt.subplots(figsize=(10,5))
+    t = np.arange(data_mat.shape[0])*tr
+    for i in range(data_mat.shape[-1]):
+        ax.plot(t, proc.normalize(data_mat[...,i])*scales[i] + i*shifts[i], color=colors[i])
+    ax.legend(["BPT - 1863.8MHz", "BPT - 2463.9MHz", "z-displacement"], frameon=False)
+    ax.set_ylabel("Amplitude (a.u.)")
+    ax.set_xlabel("Time (s)")
