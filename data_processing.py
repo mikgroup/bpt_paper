@@ -548,18 +548,27 @@ def lin_correct_all_phases(bpt_inp, corr_drift=True, demean=True):
     mtx = np.array([yy, xx, c]).T # Flatten fortran order; [npe*nph x 3]
     
     #  Fit per-coil
+    artifact_est = np.empty(bpt_corr.shape)
     for i in range(ncoils):
-        data = np.abs(bpt_inp[:,i,:]) # size [npe x nph]
+        data = bpt_inp[:,i,:] # size [npe x nph]
         b = data.flatten('F') # Data
         coeffs = np.linalg.inv(mtx.T @ mtx) @ mtx.T @ b
-        if corr_drift: # correct for drift over phases
-            bpt_corr[:,i] = b - (yy*coeffs[0] + xx*coeffs[1] + np.ones(npe*nph)*coeffs[2])
+        
+        # Correct for drift over phases
+        if corr_drift:
+            artifact_est[:,i] = yy*coeffs[0] + xx*coeffs[1] + np.ones(npe*nph)*coeffs[2]
+        
+        # Correct just for linear change within phases
         else:
             if demean:
-                bpt_corr[:,i] = b - (xx*coeffs[1] + np.ones(npe*nph)*coeffs[2])
+                artifact_est[:,i] = xx*coeffs[1] + np.ones(npe*nph)*coeffs[2]
             else:
-                bpt_corr[:,i] = b - (xx*coeffs[1])
-    return bpt_corr
+                artifact_est[:,i] = xx*coeffs[1]
+                
+        # Remove artifact
+        bpt_corr[:,i] = b - artifact_est[:,i]
+        
+    return bpt_corr, artifact_est
 
 
 def load_bpt_accel(inpdir, folder_list, tr=8.7e-3, c=17, int_cutoff=3, filter_cutoff=5, t_starts=[2.57, 2.9, 1.89], T=12):
@@ -590,3 +599,35 @@ def load_bpt_accel(inpdir, folder_list, tr=8.7e-3, c=17, int_cutoff=3, filter_cu
         data_mat[...,i] = data
         
     return data_mat
+
+def bpt_reshape(bpt, dims, fwd=True):
+    ''' Reshape data '''
+    # Reshape data to the right dimensions
+    npe, ncoils, nph = dims
+    if fwd: # (npe, ncoils, nph) --> (npe*nph, ncoils)
+        bpt_t = np.transpose(bpt,(0,2,1)) # Put coils as the last dimension - this is so that reshaping works as intended
+        bpt_r = np.reshape(bpt_t, (npe*nph,ncoils), order="F")
+    else: # (npe*nph, ncoils) --> (npe, ncoils, nph)
+        bpt_r = np.reshape(bpt, (npe,nph,ncoils), order="F")
+        bpt_r = np.transpose(bpt_r, (0,2,1)) # (npe, ncoils, nph)
+        
+    return bpt_r
+
+
+def load_corrected_bpt(inpdir, tr=4.4e-3, ref_coil=0, cutoff=5):
+    ''' Load respiratory BPT and correct for artifact '''
+    # Load PT obj mag, phase, and modulation
+    fb = run.load_bpt_mag_phase(inpdir, tr=tr, ref_coil=ref_coil, threshold=0.2, lpfilter=True, cutoff=cutoff)
+    bpt = fb.pt_mag[0,...]
+    
+    # Median, then lp filter
+    bpt = med_filt_c(bpt, kernel_size=3)
+    bpt = filter_c(bpt, cutoff=cutoff, tr=tr)
+    
+    # Correct artifact
+    ksp = cfl.readcfl(os.path.join(inpdir,"ksp"))
+    nro, npe, nph, ncoils = ksp.shape
+    bpt_r = bpt_reshape(bpt, dims=(npe,ncoils,nph), fwd=False)
+    bpt_corr, artifact = lin_correct_all_phases(bpt_r, corr_drift=False, demean=False)
+    
+    return bpt_corr, bpt

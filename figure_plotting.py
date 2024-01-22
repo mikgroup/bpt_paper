@@ -624,7 +624,6 @@ def plot_mod(fb_2400, cutoff, num_max, color_dict, figsize=(20,10), t_lims=[0,78
         for mean in bad_means:
             coil_inds_filt = np.delete(coil_inds_filt, np.where(coil_inds_filt == mean)[0])
 
-
         # Plot loop
         for c in range(num_max):
             coil_ind = coil_inds_filt[c]
@@ -1101,3 +1100,34 @@ def plot_bpt_accel(data_mat, tr=8.7e-3, figsize=(10,5), shifts=[-1,-2,-1], scale
     ax.legend(["BPT - 1863.8MHz", "BPT - 2463.9MHz", "z-displacement"], frameon=False)
     ax.set_ylabel("Amplitude (a.u.)")
     ax.set_xlabel("Time (s)")
+
+    
+def plot_supp_peaks_bpt(tr=4.4e-3, cutoff=5, figsize=(10,5), shift=-2, title=""):
+    '''' Plot supplemental figure of respiratory signal with multiple peaks '''
+    # TODO change this
+    basedir = "/mikRAID/sanand/pilot_tone/data/volunteer_sweep_042622/abdomen/"
+    inpdir_list = [f for f in os.listdir(basedir) if "fb" in f]
+
+    # Construct matrix of BPT data from each frequency
+    bpt_corr, bpt = proc.load_corrected_bpt(os.path.join(basedir,inpdir_list[0]), tr=tr, ref_coil=0, cutoff=cutoff)
+    bpt_mat = np.empty((len(inpdir_list), bpt_corr.shape[0], bpt_corr.shape[1]))
+    for i, inpdir in enumerate(inpdir_list):
+        bpt_corr, bpt = proc.load_corrected_bpt(os.path.join(basedir,inpdir), tr=tr, ref_coil=0, cutoff=cutoff)
+        bpt_mat[i,...] = bpt_corr
+
+    # Manually plot one coil from each frequency
+    c_inds = [14,10,2,1]
+    shift = -4
+    t = np.arange(bpt.shape[0])*tr
+    plt.figure(figsize=figsize)
+    c = 0
+    for i in [0,1,3,4]: # Skip 1200MHz
+        plt.plot(t, proc.normalize(bpt_mat[i,:,c_inds[c]]) + c*shift)
+        plt.xlim([30,77])
+        # plt.yticks([])
+        c += 1
+        plt.ylabel("Amplitude (a.u.)")
+    plt.xlabel("Time (s)")
+    plt.title("BPT-Rx respiratory signal across frequencies")
+    plt.legend(["{} MHz".format(i) for i in [300,800, 1800, 2400]], frameon=False)
+    
