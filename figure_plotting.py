@@ -377,9 +377,13 @@ def plot_overlaid_data(data_all, f_combined, error_samp=400):
         for c in range(data_all.shape[-1]):
             err = np.var(data_all[:,i,:,c], axis=0)
             mean = np.mean(data_all[:,i,:,c], axis=0)
+            # Plot mean
             axs[i].plot(xpos,mean)
-            axs[i].errorbar(x=xpos[mask], y=mean[mask], yerr=err[mask], fmt='', linestyle='', c='r',lw=1,)
-
+            axs[i].errorbar(x=xpos[mask], y=mean[mask], yerr=err[mask], fmt='', linestyle='', capsize=1, c='k',lw=1)
+            # Plot stdev as a transparent spread
+            # axs[i].fill_between(xpos, mean - err, mean + err, alpha=0.8)
+            
+            
         # Set formatting
         axs[i].set_title(str(f_combined[i]) + " MHz")
         axs[i].set_yticks(np.linspace(np.amin(data_all[:,i,:,:]), np.amax(data_all[:,i,:,:]), 4).astype(int))
@@ -1131,3 +1135,34 @@ def plot_supp_peaks_bpt(tr=4.4e-3, cutoff=5, figsize=(10,5), shift=-2, title="")
     plt.title("BPT-Rx respiratory signal across frequencies")
     plt.legend(["{} MHz".format(i) for i in [300,800, 1800, 2400]], frameon=False)
     
+    
+def plot_multicoil_vibration(f, bpt_cat, bpt_f, labels, tr=8.7e-3, shifts=[-5,-10], figsize=(10,5)):
+    # Append to labels
+    label_list = ["BPT-1.8-1", "BPT-2.4-1", "z-displacement"]
+    colors = ["tab:green", "tab:red", "tab:olive",
+              "tab:brown", "tab:pink", "tab:purple"]
+    
+    [labels.append(l) for l in label_list]
+    
+    plt.figure(figsize=figsize)
+    # Plot time domain
+    t = np.arange(bpt_cat.shape[0])*tr
+    plt.subplot(211)
+    for i in range(bpt_cat.shape[1]):
+        plt.plot(t, proc.normalize(bpt_cat[...,i]) + i*shifts[0], color=colors[i])
+    plt.legend(labels)
+    plt.yticks([])
+    plt.xlabel("Time (s)")
+    plt.title("Time domain vibration")
+
+    # Plot frequency domain
+    plt.subplot(212)
+    for i in range(bpt_f.shape[1]):
+        plt.plot(f, proc.normalize(np.abs(bpt_f[...,i]), var=True) + i*shifts[1], color=colors[i])
+    plt.xlim([1,7])
+    plt.legend(labels)
+    plt.yticks([])
+    plt.title("Spectrum of vibration")
+    plt.xlabel("Frequency (Hz)")
+    
+    plt.subplots_adjust(bottom=0.1, wspace=0.1, hspace=0.4)

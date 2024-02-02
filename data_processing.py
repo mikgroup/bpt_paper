@@ -86,39 +86,32 @@ def get_percent_mod(pt):
     pt_mod = (pt/np.mean(pt,axis=0)-1)*100
     return pt_mod
 
-def load_rocker_data(rocker_dir, experiment_list, tr_dict=None, cutoff=1):
-    ''' Load full matrix of rocker data '''
-    # Get dims
-    if tr_dict is None:
-        tr = 4.3e-3
-    else:
-        tr = tr_dict[experiment_list[0]]*1e-6
-        
+def load_multi_experiment_data(rocker_dir, experiment_list, tr=4.4e-3, cutoff=1, lpfilter=True):
+    ''' Load full matrix of experiment data '''
     # Load first folder just to get dimensions
     inpdir = os.path.join(rocker_dir, experiment_list[0])
     pt_obj = run.load_bpt_mag_phase(inpdir=inpdir,
                                    tr=tr,
                                     ref_coil=0,
-                                    lpfilter=True,
+                                    lpfilter=lpfilter,
                                     cutoff=cutoff)
     Npts, nro, ncoils = pt_obj.dims
     pt_mag = np.empty((len(experiment_list), nro, ncoils))
     
     # Load remaining data from each folder in the list
     for i in range(len(experiment_list)):
-        if tr_dict is None:
-            tr = 4.3e-3
-        else:
-            tr = tr_dict[experiment_list[i]]*1e-6
         inpdir = os.path.join(rocker_dir, experiment_list[i])
         pt_obj = run.load_bpt_mag_phase(inpdir=inpdir,
                                         tr=tr,
                                         ref_coil=0,
-                                        lpfilter=True,
+                                        lpfilter=lpfilter,
                                         cutoff=cutoff)
         
         # Get mag and phase in percent mod units
-        pt_mag[i,...] = np.squeeze(pt_obj.pt_mag_filtered)
+        if lpfilter is True:
+            pt_mag[i,...] = np.squeeze(pt_obj.pt_mag_filtered)
+        else:
+            pt_mag[i,...] = np.squeeze(pt_obj.pt_mag)
     
     return pt_mag
 
@@ -570,7 +563,6 @@ def lin_correct_all_phases(bpt_inp, corr_drift=True, demean=True):
         
     return bpt_corr, artifact_est
 
-
 def load_bpt_accel(inpdir, folder_list, tr=8.7e-3, c=17, int_cutoff=3, filter_cutoff=5, t_starts=[2.57, 2.9, 1.89], T=12):
     ''' Load BPT and accelerometer data into a matrix '''
     # Convert time to index
@@ -631,3 +623,29 @@ def load_corrected_bpt(inpdir, tr=4.4e-3, ref_coil=0, cutoff=5):
     bpt_corr, artifact = lin_correct_all_phases(bpt_r, corr_drift=False, demean=False)
     
     return bpt_corr, bpt
+
+
+def load_multicoil_vibration(tr=8.7e-3, t_start=4, T=4, filter_cutoff=np.array([1,10]), c=np.array([18,19,26]), inpdir="./data/vibration/accel"):
+    ''' Load vibration data into a single matrix and get spectrum '''
+    labels = ["BPT-1.8-{}".format(coil-16) for coil in c]
+    # Load 1800 data for all coils
+    pt_data_full = load_multi_experiment_data(inpdir, experiment_list=["1800"], tr=tr, lpfilter=True, cutoff=filter_cutoff).squeeze()
+    n_start = int(t_start/tr)
+    Nsamp = int(T/tr)
+    bpt_vibration = pt_data_full[n_start:n_start + Nsamp,c]
+
+    # Load accelerometer + BPT data
+    folder_list = ["1800", "2400", "accel"]
+    data_mat = load_bpt_accel(inpdir, folder_list, tr=tr, c=17, int_cutoff=2.5, filter_cutoff=filter_cutoff, t_starts=[t_start, 3.7, 3], T=T)
+
+    # Concatenate
+    bpt_cat = np.concatenate((bpt_vibration, data_mat), axis=1)
+
+    # Get spectrum
+    N = bpt_cat.shape[0]*5
+    bpt_f = np.empty((N, bpt_cat.shape[1]), dtype=np.complex64)
+    for i in range(bpt_cat.shape[1]):
+        bpt_f[...,i] = sp.fft(bpt_cat[...,i], oshape=(N,))
+    f = np.arange(-N/2, N/2)*1/(tr*N)
+    
+    return f, bpt_cat, bpt_f, labels
