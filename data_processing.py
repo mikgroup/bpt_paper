@@ -256,14 +256,27 @@ def get_accel_d(accel, tr=8.7e-3, cutoff=3, get_v=False):
             accel_d[:,i] = dbl_int(accel[:,i], tr=tr, cutoff=cutoff, get_v=False)
         return accel_d
     
-def get_bpt_d(accel_d, bpt_inp):
+def get_bpt_d(accel_d, bpt_inp, return_vals=False, norm=True):
     ''' Find coefficients to linearly combine BPT to match displacement'''
     bpt_d = np.empty(accel_d.shape)
+    # [ncoils, naxes]
+    coeffs = np.empty((bpt_inp.shape[-1], accel_d.shape[-1]))
+    
     for i in range(accel_d.shape[1]):
-        accel_inp = normalize(accel_d[:,i])
+        # Optionally normalize
+        if norm is True:
+            accel_inp = normalize(accel_d[:,i])
+        else:
+            accel_inp = accel_d[:,i]
         opt_vals = lsq_linear(bpt_inp, accel_inp)
+        # Compute linear combination across BPT coils
         bpt_d[:,i] = lin_comb(opt_vals.x, bpt_inp)
-    return bpt_d
+        coeffs[:,i] = opt_vals.x
+        
+    if return_vals is False:
+        return bpt_d
+    else:
+        return bpt_d, coeffs
 
 # Try least squares fit to calculate coeffs of x, y and z
 def lin_comb(x, accel_d):
@@ -308,7 +321,7 @@ def get_pca(pt1, pt2=None, n_components=2):
         pt_pca = pca.transform(pt2)
     
     # Explained variance of components
-    var_exp = np.sum(pca.explained_variance_ratio_)
+    var_exp = pca.explained_variance_ratio_
 
     return pt_pca, var_exp
 
@@ -649,3 +662,54 @@ def load_multicoil_vibration(tr=8.7e-3, t_start=4, T=4, filter_cutoff=np.array([
     f = np.arange(-N/2, N/2)*1/(tr*N)
     
     return f, bpt_cat, bpt_f, labels
+
+
+def load_pca_data(data_dir="./data", train_folder="calibration_small_movement", test_folder="inference_v2", ncomps=3):
+    ''' Take PCA of training data and project test data onto learned PCs '''
+    # Training data
+    train_inpdir = os.path.join(data_dir, "head", train_folder)
+    train = np.real(cfl.readcfl(os.path.join(train_inpdir, "bpt"))) # Magnitude
+    tr_train = np.load(os.path.join(train_inpdir, "tr.npy"))
+
+    # Test data
+    test_inpdir = os.path.join(data_dir, "head", test_folder)
+    test = np.real(cfl.readcfl(os.path.join(test_inpdir, "bpt"))) # Magnitude
+    tr_test = np.load(os.path.join(test_inpdir, "tr.npy"))
+    transform_params = np.load(os.path.join(test_inpdir, "reg", "transform_params.npy"))
+
+    # Get PCA
+    pt_avg_train, bpt_avg_train = combine_avg_bpt(train, avg=True)
+    pt_avg_test, bpt_avg_test = combine_avg_bpt(test, avg=True)
+
+    # Separate training and test data
+    pt_pca, pt_var_exp = get_pca(pt_avg_train, pt2=pt_avg_test, n_components=ncomps)
+    bpt_pca, bpt_var_exp = get_pca(bpt_avg_train, pt2=bpt_avg_test, n_components=ncomps)
+
+    # PCA of params themselves as ground truth
+    param_pca, param_var_exp = get_pca(transform_params, n_components=ncomps)
+    
+    # Return PCs and explained variance
+    var_exp = np.array([param_var_exp, bpt_var_exp, pt_var_exp])
+    pca = np.array([param_pca, bpt_pca, pt_pca])
+    return pca, var_exp
+
+def combine_avg_bpt(train, tr=None, avg=True, cutoff=5, norm=True):
+    ''' Combine BPT and PT across antennas '''
+    pt_combined = np.concatenate((train[0,...], train[-1,...]), axis=-1)
+    bpt_combined = np.concatenate((train[1,...], train[2,...]), axis=-1)
+    
+    if avg is True:
+        # Average
+        pt_avg_train = np.mean(pt_combined, axis=0)
+        bpt_avg_train = np.mean(bpt_combined, axis=0)
+    else: # Concatenate
+        npoints, nph, ncoils = pt_combined.shape
+        pt_avg_train = filter_c(pt_combined.reshape((npoints*nph,ncoils), order="F"), cutoff=cutoff, tr=tr)
+        bpt_avg_train = filter_c(bpt_combined.reshape((npoints*nph,ncoils), order="F"), cutoff=cutoff, tr=tr)
+        
+    # Additionally remove mean
+    if norm is True:
+        pt_avg_train = normalize_c(pt_avg_train, var=False)
+        bpt_avg_train = normalize_c(bpt_avg_train, var=False)
+        
+    return pt_avg_train, bpt_avg_train

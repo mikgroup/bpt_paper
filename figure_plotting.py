@@ -522,8 +522,39 @@ def plot_accel_comparison(pt_mag, accel_d, coil_inds=np.arange(16,20), start_tim
     legendfig.legend(lines[:len(coil_inds)+1], labels[:len(coil_inds)+1], loc='center')
     plt.show()
     
+def plot_pca_3d(pt_pca, ax=None, fig=None, elev=55, azim=-72, figsize=(10,5), title="", show_idx=False, label_interval=5, s=10, colorbar=True):
+    if ax is None:
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, subplot_kw={'projection': '3d'})
+    colors = cm.RdBu(np.linspace(0, 1, pt_pca.shape[0]))
+
+    # Actual scatterplot
+    x, y, z = pt_pca.T
+    ax.scatter(x, y, z, c=colors, s=s, edgecolor='black', alpha=1)
+
+    # Angles, labels, and params
+    ax.view_init(elev=elev, azim=azim)
+    lpad = 10 # Spacing for labels
+    ax.set_xlabel("PC 1", labelpad=lpad, rotation=90)
+    ax.set_ylabel("PC 2", labelpad=lpad)
+    ax.set_zlabel("PC 3", labelpad=lpad, rotation=20)
+    ax.set_title(title)
     
-def plot_pca_combined(pt_pcas, tr=4.4e-3, save=True, figsize=(10,10), colorbar=False):
+    # Set only 5 xticks
+    for axis in ['x', 'y', 'z']:
+        ax.locator_params(axis=axis, nbins=3)
+        ax.tick_params(axis=axis, which='both', pad=0)
+    
+    # Label all data points
+    if show_idx is True:
+        for label_idx in range(0, pt_pca.shape[0], label_interval):
+            label_text = '{}'.format(label_idx)
+            ax.text(x[label_idx], y[label_idx], label_text, color='black')
+        
+    # Set colorbar
+    if colorbar is True:
+        cbar = fig.colorbar(cm.ScalarMappable(cmap='RdBu'), ax=ax, ticks=[], location="right", pad=0.2, shrink=0.5)
+    
+def plot_pca_combined(pt_pcas, tr=4.4e-3, figsize=(10,10), colorbar=False):
     ''' Plot 3D PCA traces '''
     titles = ["PT", "BPT"]
     delta_tick = [100,100]
@@ -1166,3 +1197,35 @@ def plot_multicoil_vibration(f, bpt_cat, bpt_f, labels, tr=8.7e-3, shifts=[-5,-1
     plt.xlabel("Frequency (Hz)")
     
     plt.subplots_adjust(bottom=0.1, wspace=0.1, hspace=0.4)
+
+    
+def plot_colored_lines(x, y, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
+    # Create a smoothly changing colormap along the line
+    colors = np.linspace(np.amin(y), np.amax(y), len(y))
+    # Define a colormap
+    cmap = plt.cm.RdBu
+    # Normalize the color values
+    norm = plt.Normalize(np.amin(y), np.amax(y))
+    
+    # Plot
+    for i in range(len(y) - 1):
+        ax.plot(x[i:i+2], y[i:i+2], c=cmap(norm(colors[i])))
+        
+def plot_pca_t(pca, figsize=(15,5)):
+    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=figsize)
+    x = np.arange(1, pca.shape[1] + 1)
+    titles = ["Registration Parameters", "BPT", "PT"]
+    # Plot with colormap
+    for j in range(pca.shape[0]):
+        ax[j].set_ylabel("Amplitude (a.u.)")
+        ax[j].set_title(titles[j])
+        ax[j].set_xlabel("Frame index")
+        for i in range(pca.shape[-1]):
+            plot_colored_lines(x, pca[j,...,i], ax=ax[j])
+
+        for axis in ['x', 'y']:
+            ax[j].locator_params(axis=axis, nbins=5)
+
+    plt.subplots_adjust(wspace=0.4, hspace=0)
