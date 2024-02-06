@@ -539,6 +539,11 @@ def plot_pca_3d(pt_pca, ax=None, fig=None, elev=55, azim=-72, figsize=(10,5), ti
     ax.set_zlabel("PC 3", labelpad=lpad, rotation=20)
     ax.set_title(title)
     
+    # Remove axis ticks - note that if using xticks instead of xticklabels, the grid disappears!
+    # ax.set_xticklabels([])
+    # ax.set_yticklabels([])
+    # ax.set_zticklabels([])
+    
     # Set only 5 xticks
     for axis in ['x', 'y', 'z']:
         ax.locator_params(axis=axis, nbins=3)
@@ -548,7 +553,7 @@ def plot_pca_3d(pt_pca, ax=None, fig=None, elev=55, azim=-72, figsize=(10,5), ti
     if show_idx is True:
         for label_idx in range(0, pt_pca.shape[0], label_interval):
             label_text = '{}'.format(label_idx)
-            ax.text(x[label_idx], y[label_idx], label_text, color='black')
+            ax.text(x[label_idx], y[label_idx], z[label_idx], s=label_text, color='black')
         
     # Set colorbar
     if colorbar is True:
@@ -1170,7 +1175,7 @@ def plot_supp_peaks_bpt(tr=4.4e-3, cutoff=5, figsize=(10,5), shift=-2, title="")
 def plot_multicoil_vibration(f, bpt_cat, bpt_f, labels, tr=8.7e-3, shifts=[-5,-10], figsize=(10,5)):
     # Append to labels
     label_list = ["BPT-1.8-1", "BPT-2.4-1", "z-displacement"]
-    colors = ["tab:green", "tab:red", "tab:olive",
+    colors = ["tab:green", "tab:olive",
               "tab:brown", "tab:pink", "tab:purple"]
     
     [labels.append(l) for l in label_list]
@@ -1181,7 +1186,7 @@ def plot_multicoil_vibration(f, bpt_cat, bpt_f, labels, tr=8.7e-3, shifts=[-5,-1
     plt.subplot(211)
     for i in range(bpt_cat.shape[1]):
         plt.plot(t, proc.normalize(bpt_cat[...,i]) + i*shifts[0], color=colors[i])
-    plt.legend(labels)
+    plt.legend(labels, loc='upper right')
     plt.yticks([])
     plt.xlabel("Time (s)")
     plt.title("Time domain vibration")
@@ -1191,7 +1196,7 @@ def plot_multicoil_vibration(f, bpt_cat, bpt_f, labels, tr=8.7e-3, shifts=[-5,-1
     for i in range(bpt_f.shape[1]):
         plt.plot(f, proc.normalize(np.abs(bpt_f[...,i]), var=True) + i*shifts[1], color=colors[i])
     plt.xlim([1,7])
-    plt.legend(labels)
+    plt.legend(labels, loc='upper right')
     plt.yticks([])
     plt.title("Spectrum of vibration")
     plt.xlabel("Frequency (Hz)")
@@ -1229,3 +1234,88 @@ def plot_pca_t(pca, figsize=(15,5)):
             ax[j].locator_params(axis=axis, nbins=5)
 
     plt.subplots_adjust(wspace=0.4, hspace=0)
+    
+    
+def plot_transform_params(transform_parameters, figsize=(10,10), title="", ax=None, fig=None):
+    ''' Plot 3D rigid registration params '''
+    if ax is None:
+        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=figsize)
+    
+    fig.suptitle(title)
+    # Rotation
+    ax[0].plot(transform_parameters[:, 0:3]/(2*np.pi)*360)
+    ax[0].set_title('Rotation parameters')
+    ax[0].legend(['yaw','roll','pitch'])
+    ax[0].set_ylabel("Rotation (degrees)")
+
+    # Translation
+    ax[1].plot(transform_parameters[:,3:])
+    ax[1].set_title('Translation parameters')
+    ax[1].set_ylabel("Translation (pixels)")
+    ax[1].legend(['H->F translation','A->P translation','R->L translation'])
+    ax[1].set_xlabel("Frame index")
+    
+def plot_cal_inference(data_dir="./data", cal_dir="calibration_small_movement", inf_dir="inference_v2", figsize=(15,10)):
+    ''' Plot registration parameters for calibration and inference '''
+    # Plot registration parameters for calibration
+    calibration_dir = os.path.join(data_dir, "head", cal_dir)
+    test_dir = os.path.join(data_dir, "head", inf_dir)
+    calibration_params = np.load(os.path.join(calibration_dir, "reg", "transform_params.npy"))
+    test_params = np.load(os.path.join(test_dir, "reg", "transform_params.npy"))
+
+    # First column is calibration; second is inference
+    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=figsize)
+    for i in range(len(ax)):
+        if i == 0:
+            params = calibration_params
+        else:
+            params = test_params
+        plot_transform_params(params, title="", ax=ax[:,i], fig=fig)
+        
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
+    
+def plot_mod_list(pt_avg_train, N=5, title="", ax=None, figsize=(10,5), shift=-5):
+    ''' Plot N most modulated coils '''
+    pt_mod = (pt_avg_train / np.mean(pt_avg_train, axis=0) - 1)*100
+    # mod_range = np.amax(pt_mod, axis=0)/np.amin(pt_mod, axis=0)
+    mod_range = np.amax(np.abs(pt_mod), axis=0)
+    # mod_range = np.mean(pt_avg_train, axis=0)
+    
+    pt_mod_list = np.flip(np.argsort(mod_range))
+    
+    if ax is None:
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+
+    ax.plot(proc.normalize_c(pt_avg_train[...,pt_mod_list[:N]], var=False) + np.arange(N)*shift)
+    ax.set_xlabel("Frame index")
+    ax.set_ylabel("Amplitude (a.u.)")
+    ax.set_title(title)
+    
+    
+def plot_bpt_pt_head(data_dir="./data", cal_dir="calibration_small_movement", inf_dir="inference_v2", figsize=(15,10)):
+    ''' Plot BPT and PT time series data '''
+    calibration_dir = os.path.join(data_dir, "head", cal_dir)
+    test_dir = os.path.join(data_dir, "head", inf_dir)
+    train = np.real(cfl.readcfl(os.path.join(calibration_dir, "bpt"))) # Magnitude
+    test = np.real(cfl.readcfl(os.path.join(test_dir, "bpt"))) # Magnitude
+
+    # Combine data across antennas and average
+    pt_avg_train, bpt_avg_train = proc.combine_avg_bpt(train, avg=True, norm=False)
+    pt_avg_test, bpt_avg_test = proc.combine_avg_bpt(test, avg=True, norm=False)
+
+    # First column is calibration; second is inference
+    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=figsize)
+    titles = ["PT train", "BPT train", "PT test", "BPT test"]
+    c = 0
+    for i in range(len(ax)):
+        if i == 0:
+            pt = pt_avg_train
+            bpt = bpt_avg_train
+        else:
+            pt = pt_avg_test
+            bpt = bpt_avg_test
+        for j, sig in enumerate([pt, bpt]):
+            plot_mod_list(sig, N=4, title=titles[c], ax=ax[j,i], shift=0)
+            c += 1
+
+    plt.subplots_adjust(wspace=0.2, hspace=0.3)

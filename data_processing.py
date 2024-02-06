@@ -664,7 +664,7 @@ def load_multicoil_vibration(tr=8.7e-3, t_start=4, T=4, filter_cutoff=np.array([
     return f, bpt_cat, bpt_f, labels
 
 
-def load_pca_data(data_dir="./data", train_folder="calibration_small_movement", test_folder="inference_v2", ncomps=3):
+def load_pca_data(data_dir="./data", train_folder="calibration_small_movement", test_folder="inference_v2", ncomps=3, combine=True, antenna_inds=[0,1]):
     ''' Take PCA of training data and project test data onto learned PCs '''
     # Training data
     train_inpdir = os.path.join(data_dir, "head", train_folder)
@@ -678,8 +678,8 @@ def load_pca_data(data_dir="./data", train_folder="calibration_small_movement", 
     transform_params = np.load(os.path.join(test_inpdir, "reg", "transform_params.npy"))
 
     # Get PCA
-    pt_avg_train, bpt_avg_train = combine_avg_bpt(train, avg=True)
-    pt_avg_test, bpt_avg_test = combine_avg_bpt(test, avg=True)
+    pt_avg_train, bpt_avg_train = combine_avg_bpt(train, avg=True, combine=combine, antenna_inds=antenna_inds)
+    pt_avg_test, bpt_avg_test = combine_avg_bpt(test, avg=True, combine=combine, antenna_inds=antenna_inds)
 
     # Separate training and test data
     pt_pca, pt_var_exp = get_pca(pt_avg_train, pt2=pt_avg_test, n_components=ncomps)
@@ -693,10 +693,14 @@ def load_pca_data(data_dir="./data", train_folder="calibration_small_movement", 
     pca = np.array([param_pca, bpt_pca, pt_pca])
     return pca, var_exp
 
-def combine_avg_bpt(train, tr=None, avg=True, cutoff=5, norm=True):
-    ''' Combine BPT and PT across antennas '''
-    pt_combined = np.concatenate((train[0,...], train[-1,...]), axis=-1)
-    bpt_combined = np.concatenate((train[1,...], train[2,...]), axis=-1)
+def combine_avg_bpt(train, tr=None, avg=True, cutoff=5, norm=True, combine=True, antenna_inds=[0,1]):
+    ''' Combine BPT and PT across antennas and average '''
+    if combine is True:
+        pt_combined = np.concatenate((train[0,...], train[-1,...]), axis=-1)
+        bpt_combined = np.concatenate((train[1,...], train[2,...]), axis=-1)
+    else: # Pick data from a single antenna
+        pt_combined = train[antenna_inds[0],...]
+        bpt_combined = train[antenna_inds[1],...]
     
     if avg is True:
         # Average
