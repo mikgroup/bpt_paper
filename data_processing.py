@@ -461,21 +461,30 @@ def get_physio_waveforms(inpdir, bpt_len=None,
         phys_waveforms.append(ppg_crop)
     return phys_waveforms
 
-
 def get_max_energy(pt,tr,f_range=[0.8,1]):
     ''' Get the coil with max energy in cardiac band '''
     energy = np.empty(pt.shape[-1])
+    N = pt.shape[0]
     # Get PSD
-    pt_f_all = np.empty((pt.shape[0]*2, pt.shape[1]))
-    for i in range(pt.shape[-1]):
-        pt_f,f = zpad_1d(pt[:,i],fs=1/tr, N=None)
-        pt_f_all[:,i] = np.abs(pt_f)**2
+    pt_f_all = np.empty((N*4, pt.shape[1]))
+    
     # Normalize
-    pt_f_all /= np.amax(pt_f_all)
+    pt_norm = normalize_c(np.abs(pt), var=False)
+    
+    for i in range(pt.shape[-1]):
+        # pt_f,f = proc.zpad_1d(pt[:,i],fs=1/tr, N=None)
+        pt_f = sp.fft(pt_norm[:,i], oshape=(pt_f_all.shape[0],))
+        pt_f_all[:,i] = np.abs(pt_f)**2
+        
+    # Normalize
+    M = pt_f_all.shape[0]
+    f = np.arange(-M/2, M/2)*1/(tr*M)
+    # pt_f_all /= np.amax(pt_f_all)
     f_ind = np.where(np.logical_and(f >= f_range[0],f <= f_range[1]))[0]
     energy = np.sum(pt_f_all[f_ind,:], axis=0)
     max_inds = np.flip(np.argsort(energy))
-    return energy, max_inds
+    
+    return max_inds
 
 def zpad_1d(inp, fs, N=None):
     ''' Zero-padded 1D FFT '''
@@ -717,3 +726,11 @@ def combine_avg_bpt(train, tr=None, avg=True, cutoff=5, norm=True, combine=True,
         bpt_avg_train = normalize_c(bpt_avg_train, var=False)
         
     return pt_avg_train, bpt_avg_train
+
+
+def get_mod_list(pt_avg_train):
+    ''' Sort by max abs modulation '''
+    pt_mod = (pt_avg_train / np.mean(pt_avg_train, axis=0) - 1)*100
+    mod_range = np.amax(np.abs(pt_mod), axis=0)
+    pt_mod_list = np.flip(np.argsort(mod_range))
+    return pt_mod_list
