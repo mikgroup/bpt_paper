@@ -513,7 +513,7 @@ def get_corr_pt(folder_list, inpdir,
         pt = np.squeeze(cfl.readcfl(os.path.join(inpdir, folder, "pt")))
         for i in range(2): # Antennas
             # Remove artifact
-            pt_corr = lin_correct_all_phases(np.abs(pt[...,i]),
+            pt_corr, _ = lin_correct_all_phases(np.abs(pt[...,i]),
                                                   corr_drift=False, demean=False)  
             # Filter
             if filt is True:

@@ -631,6 +631,7 @@ def plot_mod(fb_2400, cutoff, num_max, color_dict, figsize=(20,10), t_lims=[0,78
     t = proc.get_t_axis(N, tr)
     t_start, t_end = t_lims
     line_list = []
+    pt_ranges = []
     
     # Plot loop
     for i, subplot in enumerate(axs):
@@ -662,6 +663,11 @@ def plot_mod(fb_2400, cutoff, num_max, color_dict, figsize=(20,10), t_lims=[0,78
         
         # Compute percent mod
         pt_mod = (pt_plot[n_start:n_end,...] / np.mean(pt_plot[n_start:n_end,...], axis=0) - 1)*100
+        
+        # Calculate range via percentiles
+        # pt_range = np.percentile(pt_mod, 99.9, axis=0) - np.percentile(pt_mod, 0, axis=0)
+        # pt_range = np.amax(pt_mod, axis=0) - np.amin(pt_mod, axis=0)
+        # pt_ranges.append(pt_range)
 
         # Choose indices based on modulation if not specified
         if coil_mat is None:
@@ -685,11 +691,24 @@ def plot_mod(fb_2400, cutoff, num_max, color_dict, figsize=(20,10), t_lims=[0,78
                         label = "Coil " + str(coil_ind), color=color_dict[coil_ind])
             
             line_list.append(line)
+            
+        # Set range
+        min_val = np.amin(pt_mod[:, coil_inds_filt[:num_max]])
+        max_val = np.amax(pt_mod[:, coil_inds_filt[:num_max]])
+        pt_range = max_val - min_val
+        pt_ranges.append(pt_range)
+        # subplot.set_yticks(np.linspace(min_val, max_val, 3))
+        
+        subplot.set_yticks(np.linspace(min_val, max_val, 3, dtype=int))
 
         # Set labels
         title = subplot.set_title(titles[i], c='k')
         title.set_position([0.5, 0.0])
-    return axs, line_list
+        
+        # FOR DEBUGGING - set legend
+        # subplot.legend()
+        
+    return axs, line_list, np.array(pt_ranges)
 
 def plot_resp(fb_2400, cutoff=2, t_lims=[0,78], figsize=(10,10), num_max=2):
     # Plot filtered modulation for breathing portion
@@ -701,7 +720,7 @@ def plot_resp(fb_2400, cutoff=2, t_lims=[0,78], figsize=(10,10), num_max=2):
     title_colors = ["tab:purple", "tab:purple", "tab:green", "tab:green"]
     coil_mat = None
 
-    axs_resp, line_list = plot_mod(fb_2400, cutoff, num_max, color_dict,
+    axs_resp, line_list, pt_range = plot_mod(fb_2400, cutoff, num_max, color_dict,
                     coil_mat=coil_mat, 
                     figsize=figsize,
                     t_lims=t_lims, titles=titles,
@@ -712,7 +731,7 @@ def plot_resp(fb_2400, cutoff=2, t_lims=[0,78], figsize=(10,10), num_max=2):
     # Adjust spacing
     plt.subplots_adjust(bottom=0.15, top=0.9, wspace=0.3, hspace=0.6)
     
-    return axs_resp
+    return axs_resp, pt_range
 
 
 
@@ -798,6 +817,54 @@ def plot_img_patch(inpdir, crop_win=40, start=[80,40], p_size=[10,1]):
     im.set_clim(0,1500)
     return img_crop_rss
 
+def plot_cardiac_bpt_pt(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
+                             trs = np.array([4.312, 4.342, 4.321, 4.32, 4.326, 4.33])*1e-3,
+                    titles = ["127.8MHz", "300MHz", "800MHz", "1.2GHz","1.8GHz","2.4GHz"],
+                    t_start=0, t_end=2):
+    ''' Plot cardiac BPT and PT  '''
+    freqs = outdir_list
+    shifts = [-5, -5, -5, -9, -9, -9]
+    ylims = [[-7,7], [-7,7], [-5,5], [-12,7], [-15,7], [-15,7]]
+    # Actual plot
+    # colors = ["tab:red", "tab:cyan"]
+    fig, ax = plt.subplots(figsize=(10,3), nrows=1, ncols=5)
+
+    for i in range(len(outdir_list)):
+        tr = trs[i]
+        shift = shifts[i]
+        
+        pt_mag_full = np.abs(np.squeeze(cfl.readcfl(os.path.join(inpdir, outdir_list[i],"pt_ravel"))))
+        
+        # Plot BPT and PT
+        pt_mag, bpt_mag = pt_mag_full
+        
+        # Sort indices by max energy in cardiac frequency band
+        pt_idxs = proc.get_max_energy(pt_mag, tr, f_range=[0.9,3])
+        bpt_idxs = proc.get_max_energy(bpt_mag, tr, f_range=[0.9,3])
+        
+        # Filter
+        pt_filt = proc.filter_c(pt_mag, cutoff=3, tr=tr)
+        bpt_filt = proc.filter_c(bpt_mag, cutoff=15, tr=tr)
+        
+        # Compare to physio data
+        bpt_len = bpt_filt.shape[0]*tr
+        ppg = proc.get_physio_waveforms(os.path.join(inpdir, outdir_list[i]), bpt_len,
+                                        load_ppg=True, load_ecg=False,
+                                        from_front=True)[0]
+
+        t_ppg = np.arange(ppg.shape[0])*10e-3
+
+        # Plot BPT, PT and PPG
+        t = np.arange(pt_mag.shape[0])*tr
+        ax[i].plot(t, proc.normalize(bpt_filt[:,pt_idxs[0]]))
+        ax[i].plot(t, proc.normalize(bpt_filt[:,bpt_idxs[0]]) + shift)
+        ax[i].plot(t_ppg, proc.normalize(ppg) + shift*2, lw=1, color="tab:red")
+        
+        # Labels
+        ax[i].set_xlim([t_start,t_end])
+        ax[0].set_ylabel("Amplitude (a.u.)")
+        ax[i].yaxis.set_major_locator(plt.MaxNLocator(4))
+
 def plot_raw_cardiac_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
                              trs = np.array([4.312, 4.342, 4.321, 4.32, 4.326, 4.33])*1e-3,
                     titles = ["127.8MHz", "300MHz", "800MHz", "1.2GHz","1.8GHz","2.4GHz"],
@@ -807,19 +874,19 @@ def plot_raw_cardiac_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
     shifts = [-5, -5, -5, -9, -9, -9]
     ylims = [[-7,7], [-7,7], [-5,5], [-12,7], [-15,7], [-15,7]]
     # Actual plot
-    plt.figure(figsize=(10,3))
     # colors = ["tab:red", "tab:cyan"]
+    fig, ax = plt.subplots(figsize=(10,3), nrows=1, ncols=6)
 
     for i in range(len(outdir_list)):
+        tr = trs[i]
         pt_mag_full = np.abs(np.squeeze(cfl.readcfl(os.path.join(inpdir, outdir_list[i],"pt_ravel"))))
         
-        # Select PT instead of BPT
+        # Select PT instead of BPT and filter
         if i == 0:
-            pt_mag = pt_mag_full[0,...]
+            pt_mag = proc.filter_c(pt_mag_full[0,...], cutoff=25, tr=tr)
         else:
-            pt_mag = pt_mag_full[1,...]
+            pt_mag = proc.filter_c(pt_mag_full[1,...], cutoff=25, tr=tr)
         
-        tr = trs[i]
         # Sort indices by max energy in cardiac frequency band
         idxs = proc.get_max_energy(pt_mag, tr, f_range=[0.9,3])
         
@@ -827,14 +894,17 @@ def plot_raw_cardiac_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
         print("\nmax inds = {}".format(idxs[:num_max]))
 
         # Plot
-        plt.subplot(1,6,i+1)
+        # plt.subplot(1,6,i+1)
+        
         t = np.arange(pt_mag.shape[0])*tr
         for k in range(num_max):
-            plt.plot(t, proc.normalize(pt_mag[:,idxs[k]]) + shifts[i]*k, lw=1)
+            ax[i].plot(t, proc.normalize(pt_mag[:,idxs[k]]) + shifts[i]*k, lw=1)
             # plt.plot(t, proc.normalize(pt_mag[:,idxs[k]]) + shifts[i]*k, lw=1, color=colors[k])
             
-        plt.xlim([t_start,t_end])
-        plt.yticks([])
+        ax[i].set_xlim([t_start,t_end])
+        ax[0].set_ylabel("Amplitude (a.u.)")
+        ax[i].yaxis.set_major_locator(plt.MaxNLocator(4))
+        # plt.yticks([])
         # plt.ylim([np.amin(pt_mag[:,idxs]), np.amax(pt_mag[:,idxs]) + shifts[i]])
         # plt.ylim(ylims[i])
             
@@ -844,8 +914,7 @@ def plot_cardiac_ica_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
                              t_start=0, t_end=2, shift=-8, cutoffs = np.array([2, 2, 15, 15, 15, 15]).astype(int)):
     ''' Plot cardiac signals after PCA, ICA, and filtering '''
     k = 3 # Number of ICA comps
-    fig, axs = plt.subplots(1,6, sharex=True,figsize=(10,3))
-    ax = axs.flatten()
+    fig, ax = plt.subplots(1,6, sharex=True,figsize=(10,3))
     for i in range(len(outdir_list)):
         # Get signals
         tr = trs[i] # Slightly different TR for each scan
@@ -886,7 +955,9 @@ def plot_cardiac_ica_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
         ax[i].plot(t, -1*proc.normalize(bpt_filt[:,idx[0]]), lw=1, c=color)
         ax[i].plot(t_ppg, proc.normalize(ppg) + shift*3, lw=1, color="tab:red")
         ax[i].set_xlim([t_start,t_end])
-        ax[i].set_yticks([])
+        # ax[i].set_yticks([])
+        ax[0].set_ylabel("Amplitude (a.u.)")
+        ax[i].yaxis.set_major_locator(plt.MaxNLocator(4))
 
 
 def plot_raw_cardiac(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
@@ -1126,7 +1197,7 @@ def plot_head_pca_combined(pt_pcas, tr=4.4e-3, figsizes=None):
         plt.subplots_adjust(bottom=0, wspace=0.4, hspace=0)
 
         
-def plot_artifacts(inpdir):
+def plot_artifacts(inpdir, shift=200):
     ''' Plot BPT with and without artifact correction '''
     # Head motion data
     folder_list = ["volunteer_2pt4_ax",  "multi_pt_ax",
@@ -1147,13 +1218,12 @@ def plot_artifacts(inpdir):
     pt_corr_filt = proc.filter_sig(pt_corr[:,c,1], cutoff=cutoff, fs=1/tr, order=6, btype='low')
 
     t = np.arange(pt_corr.shape[0])*tr
-    shift = 200
     plt.figure(figsize=(10,6))
     plt.plot(t-10, pt_uncorr_filt + shift);
     plt.plot(t-10, pt_corr_filt);
     plt.xlim([0,20])
     plt.legend(["Uncorrected", "Corrected"])
-    plt.yticks([])
+    # plt.yticks([])
     plt.xlabel("Time (s)")
 
 
@@ -1203,7 +1273,8 @@ def plot_supp_fig(inpdir, c=7, tr=3.1e-3, labels = ["PT", "BPT"], ylabels = ["Mo
             if j == 1:
                 bpt_filt = proc.filter_sig(bpt[...,c], cutoff=np.array([0.5,5]), fs=1/tr, order=3, btype='bandpass')
             else:
-                bpt_filt = proc.normalize(bpt[...,c])
+                bpt_filt = np.squeeze(pt_obj.pt_mag_mod)[i,...,c]
+                # bpt_filt = proc.normalize(bpt[...,c], var=False)
             ax[j].plot(t, bpt_filt, label=labels[i] + " Coil {}".format(c))
             ax[j].set_xlim([0,20])
             ax[j].set_ylabel(ylabels[j])
@@ -1237,7 +1308,7 @@ def plot_imd(inpdir, fname, figsize=(8,5), plot_range=[-25,20]):
 def plot_bpt_accel(data_mat, tr=8.7e-3, figsize=(10,5), shifts=[-1,-2,-1], scales=[1,2,0.5]):
     ''' Plot BPT at 1.8 and 2.4GHz vs accelerometer vibration '''
     colors = ["tab:brown", "tab:pink", "tab:purple"]
-    fig, ax = plt.subplots(figsize=(10,5))
+    fig, ax = plt.subplots(figsize=figsize)
     t = np.arange(data_mat.shape[0])*tr
     for i in range(data_mat.shape[-1]):
         ax.plot(t, proc.normalize(data_mat[...,i])*scales[i] + i*shifts[i], color=colors[i])
