@@ -820,32 +820,28 @@ def plot_img_patch(inpdir, crop_win=40, start=[80,40], p_size=[10,1]):
 def plot_cardiac_bpt_pt(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
                              trs = np.array([4.312, 4.342, 4.321, 4.32, 4.326, 4.33])*1e-3,
                     titles = ["127.8MHz", "300MHz", "800MHz", "1.2GHz","1.8GHz","2.4GHz"],
-                    t_start=0, t_end=2):
+                    t_start=0, t_end=2, shift=-5):
     ''' Plot cardiac BPT and PT  '''
     freqs = outdir_list
-    shifts = [-5, -5, -5, -9, -9, -9]
-    ylims = [[-7,7], [-7,7], [-5,5], [-12,7], [-15,7], [-15,7]]
     # Actual plot
-    # colors = ["tab:red", "tab:cyan"]
     fig, ax = plt.subplots(figsize=(10,3), nrows=1, ncols=5)
 
     for i in range(len(outdir_list)):
         tr = trs[i]
-        shift = shifts[i]
-        
+
         pt_mag_full = np.abs(np.squeeze(cfl.readcfl(os.path.join(inpdir, outdir_list[i],"pt_ravel"))))
-        
+
         # Plot BPT and PT
         pt_mag, bpt_mag = pt_mag_full
-        
+
         # Sort indices by max energy in cardiac frequency band
         pt_idxs = proc.get_max_energy(pt_mag, tr, f_range=[0.9,3])
         bpt_idxs = proc.get_max_energy(bpt_mag, tr, f_range=[0.9,3])
-        
+
         # Filter
-        pt_filt = proc.filter_c(pt_mag, cutoff=3, tr=tr)
-        bpt_filt = proc.filter_c(bpt_mag, cutoff=15, tr=tr)
-        
+        pt_filt = proc.filter_c(pt_mag, cutoff=25, tr=tr)
+        bpt_filt = proc.filter_c(bpt_mag, cutoff=25, tr=tr)
+
         # Compare to physio data
         bpt_len = bpt_filt.shape[0]*tr
         ppg = proc.get_physio_waveforms(os.path.join(inpdir, outdir_list[i]), bpt_len,
@@ -855,14 +851,16 @@ def plot_cardiac_bpt_pt(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
         t_ppg = np.arange(ppg.shape[0])*10e-3
 
         # Plot BPT, PT and PPG
+        C = 4 # Number of bpt coils to plot
         t = np.arange(pt_mag.shape[0])*tr
-        ax[i].plot(t, proc.normalize(bpt_filt[:,pt_idxs[0]]))
-        ax[i].plot(t, proc.normalize(bpt_filt[:,bpt_idxs[0]]) + shift)
-        ax[i].plot(t_ppg, proc.normalize(ppg) + shift*2, lw=1, color="tab:red")
-        
+
+        ax[i].plot(t, proc.normalize_c(bpt_filt[:,bpt_idxs[:C]]) + np.arange(C)*shift)
+        ax[i].plot(t, proc.normalize(pt_filt[:,21]) + shift*(C))
+        ax[i].plot(t_ppg, proc.normalize(ppg) + shift*(C+1))
+
         # Labels
         ax[i].set_xlim([t_start,t_end])
-        ax[0].set_ylabel("Amplitude (a.u.)")
+        ax[0].set_ylabel("Amplitude (a.u.)", labelpad=20)
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(4))
 
 def plot_raw_cardiac_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
