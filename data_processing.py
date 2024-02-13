@@ -16,6 +16,7 @@ from sklearn.decomposition import FastICA, PCA
 from scipy.interpolate import interp1d
 import scipy.integrate as integ
 from scipy.optimize import lsq_linear
+from scipy import stats
 
 
 def get_coeffs(cutoff, fs, order=5, btype='low'):
@@ -734,3 +735,69 @@ def get_mod_list(pt_avg_train):
     mod_range = np.amax(np.abs(pt_mod), axis=0)
     pt_mod_list = np.flip(np.argsort(mod_range))
     return pt_mod_list
+
+
+def sort_coils(sorting_arr):
+    ''' Return sorted array from most to least '''
+    if len(sorting_arr.shape) == 2: # If 3d
+        return np.fliplr(np.argsort(sorting_arr))
+    else:
+        return np.flip(np.argsort(sorting_arr))
+
+def get_mod(pt_seg):
+    ''' Get percent mod for BPT and PT, npts in first dim '''
+    bpt_mod = get_percent_mod(pt_seg[0,...])
+    pt_mod = get_percent_mod(pt_seg[1,...])
+    mod = np.stack((bpt_mod, pt_mod))
+    return mod
+
+def get_norm(pt_seg):
+    ''' Normalize for BPT and PT, npts in first dim '''
+    bpt_norm = normalize_c(pt_seg[0,...], var=False)
+    pt_norm = normalize_c(pt_seg[1,...], var=False)
+    norm = np.stack((bpt_norm, pt_norm))
+    return norm
+
+def get_range(pt_seg):
+    ''' Compute range for BPT and PT, npts in first dim '''
+    pt_norm = get_norm(pt_seg)
+    ranges = np.amax(pt_norm, axis=1) - np.amin(pt_norm, axis=1)
+    return ranges
+
+def get_means_mods_ranges(pt_full, t_start=0, t_end=78, tr=4.4e-3):
+    ''' Compute means, percent modulations, and ranges for BPT and PT '''
+    # Define start and end times
+    t_start, t_end = 0,78
+    n_start, n_end = [int(t_start/tr), int(t_end/tr)]
+
+    pt_seg = pt_full[:,n_start:n_end,...]
+    
+    # Compute mean, mods, range
+    means = np.mean(pt_seg, axis=1)
+    mods = np.amax(np.abs(get_mod(pt_seg)),axis=1)
+    ranges = get_range(pt_seg)
+    return means, mods, ranges
+
+
+def load_imd(im2_fname):
+    ''' Load intermodulation data and get linear fit '''
+    a = np.loadtxt(im2_fname, delimiter=',', skiprows=1)
+    P_in = a[:,0]
+    P_out = a[:,3]
+    IM2 = a[:,-1]
+
+    # Linear fit
+    m_lin, b_lin, r_lin, p_lin, std_err = stats.linregress(P_in, P_out)
+    m_im2, b_im2, r_im2, p_im2, std_err = stats.linregress(P_in, IM2)
+    
+    # IP2 - find crossing point
+    IP2_in = (b_im2-b_lin)/(m_lin-m_im2)
+    IP2_out = m_lin*IP2_in + b_lin
+    
+    # Calculate linear fit
+    P_in_ext = np.arange(-15,20)
+    fund = m_lin*P_in_ext + b_lin
+    IMD = m_im2*P_in_ext + b_im2
+    IP2 = np.array([IP2_in, IP2_out])
+    
+    return P_in_ext, fund, IMD, IP2

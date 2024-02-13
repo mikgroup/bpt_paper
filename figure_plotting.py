@@ -1544,3 +1544,66 @@ def plot_var_pca(pt_pca, bpt_pca, pt_var_exp, bpt_var_exp, suptitle="", shift = 
     ax.set_ylabel("Cumulative explained variance (%)")
     ax.set_title("Cumulative explained variance for PT and BPT")
     fig.suptitle(suptitle)
+    
+    
+def plot_snr(pt_full, tr=4.4e-3, figsize=(10,8), t_range=[0,78]):
+    # Coil inds with max SNR
+    means, mods, ranges = proc.get_means_mods_ranges(pt_full, t_start=t_range[0], t_end=t_range[1], tr=tr)
+
+    # Sort by mean
+    mean_inds = proc.sort_coils(means)
+    pt_inds = mean_inds[1,:]
+    
+    # mod_inds = proc.sort_coils(mods)
+    # pt_inds = mod_inds[0,:]
+
+    # Plot
+    titles = ["Mean (\u221D SNR)", "Percent modulation", "Signal range (\u221D CNR)"]
+    labels = ["Mean", "Percent modulation","Signal range"]
+    legend = ["BPT", "PT"]
+    fig, ax = plt.subplots(figsize=figsize, nrows=3, ncols=1, sharex=True) 
+    for i, sig in enumerate([means, mods, ranges]):
+        for j in range(2):
+            ax[i].plot(sig[j,pt_inds].T, '-o', label=legend[j] + ", mean = {}".format(np.round(np.mean(sig, axis=1)[j])))
+        ax[i].set_xticks(np.arange(pt_inds.shape[0]),labels=pt_inds)
+        ax[i].legend(frameon=False)
+        ax[i].set_title(titles[i])
+        ax[i].set_ylabel(labels[i])
+        ax[-1].set_xlabel("Coil index")
+        
+        
+def plot_im2(im2_fname, title="IP2 at 2.4GHz", ax=None, figsize=(10,5)):
+    ''' Plot IMD from measured data '''
+    
+    # Load data
+    a = np.loadtxt(im2_fname, delimiter=',', skiprows=1)
+    P_in = a[:,0]
+    P_out = a[:,3]
+    IM2 = a[:,-1]
+    
+    # Get linear fit
+    P_in_ext, fund, IMD, IP2 = proc.load_imd(im2_fname)
+    
+    print("IP2 = {}".format(IP2))
+    
+    # Plots
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=1)
+    
+    # Plot data points
+    ax.plot(P_in,P_out, '-o',alpha=0.5)
+    ax.plot(P_in, IM2, '-o',alpha=0.5)
+    
+    # Linear fit
+    ax.plot(P_in_ext, fund, c='tab:blue', label="Fundamental")
+    ax.plot(P_in_ext, IMD, c='tab:orange',label="Second-order IMD")
+    
+    # Calculated IP2 point
+    ax.axvline(IP2[0], ls='--', alpha=0.5)
+    ax.axhline(IP2[1], ls='--', alpha=0.5)
+    
+    # Labels
+    ax.set_xlabel("Input Power (dBm)")
+    ax.set_ylabel("Output Power (dBm)")
+    ax.set_title(title)
+    ax.legend()
