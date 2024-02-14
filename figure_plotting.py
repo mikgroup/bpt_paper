@@ -1112,6 +1112,7 @@ def plot_8c(inpdir, tr=8.7e-3, cutoff=4, c=[30,24]):
 def plot_accel_bpt(bpt, accel_d, xlim=[0,5], tr=8.7e-3, cutoff=15, v_shift=0.15, start_loc=0.96, figsize=(10,5), label=True):
     ''' Plot displacement from accel vs BPT-dBCG '''
     bpt_inp = proc.normalize_c(np.abs(bpt[1,...]))
+    
     accel_inp = proc.normalize_c(accel_d)
     bpt_d = proc.get_bpt_d(accel_inp, bpt_inp)
     bpt_filt = proc.filter_c(bpt_d, cutoff=cutoff, tr=tr)
