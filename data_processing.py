@@ -685,7 +685,7 @@ def load_pca_data(data_dir="./data", train_folder="calibration_small_movement", 
     test_inpdir = os.path.join(data_dir, "head", test_folder)
     test = np.real(cfl.readcfl(os.path.join(test_inpdir, "bpt"))) # Magnitude
     tr_test = np.load(os.path.join(test_inpdir, "tr.npy"))
-    transform_params = np.load(os.path.join(test_inpdir, "reg", "transform_params.npy"))
+    transform_params = np.load(os.path.join(test_inpdir, "reg", "rigid_params.npy"))
 
     # Get PCA
     pt_avg_train, bpt_avg_train = combine_avg_bpt(train, avg=True, combine=combine, antenna_inds=antenna_inds)

@@ -197,6 +197,7 @@ def plot_rect(axs, width=14, height=10, overlap=[6,3], n_rect=3, lw=7):
     
 def plot_fields(H,x,y,z,plane="xy", cmap="jet", marker=".", fig=None, ax=None, figsize=(10,10), title="", xlim=[-0.3,0.3], ylim=[-0.3,0.3], clim=90):
     ''' 2D scatterplot of fields '''
+    
     # Plot
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -394,7 +395,7 @@ def plot_overlaid_data(data_all, f_combined, error_samp=400):
             axs[i].set_xticks([])
 
     # Adjust spacing
-    plt.subplots_adjust(bottom=0.15, wspace=0.3, hspace=0.2)
+    # plt.subplots_adjust(bottom=0.15, wspace=0.3, hspace=0.2)
     
 def plot_meas_data(pt_mag, f_combined, figsize=(12,5), c=np.array([9,8,10]), tr=4.3e-3):
     # Plot experimental data
@@ -1410,7 +1411,7 @@ def plot_pca_t(pca, figsize=(15,5)):
     plt.subplots_adjust(wspace=0.4, hspace=0)
     
     
-def plot_transform_params(transform_parameters, figsize=(10,10), title="", ax=None, fig=None):
+def plot_transform_params(transform_parameters, figsize=(10,10), title="", ax=None, fig=None, res=np.array([1,1,1])):
     ''' Plot 3D rigid registration params '''
     if ax is None:
         fig, ax = plt.subplots(nrows=2, ncols=1, figsize=figsize)
@@ -1423,9 +1424,10 @@ def plot_transform_params(transform_parameters, figsize=(10,10), title="", ax=No
     ax[0].set_ylabel("Rotation (degrees)")
 
     # Translation
-    ax[1].plot(transform_parameters[:,3:])
+    trans_param = transform_parameters[:,3:]*res
+    ax[1].plot(trans_param)
     ax[1].set_title('Translation parameters')
-    ax[1].set_ylabel("Translation (pixels)")
+    ax[1].set_ylabel("Translation (mm)")
     ax[1].legend(['H->F translation','A->P translation','R->L translation'])
     ax[1].set_xlabel("Frame index")
     
@@ -1434,17 +1436,19 @@ def plot_cal_inference(data_dir="./data", cal_dir="calibration_small_movement", 
     # Plot registration parameters for calibration
     calibration_dir = os.path.join(data_dir, "head", cal_dir)
     test_dir = os.path.join(data_dir, "head", inf_dir)
-    calibration_params = np.load(os.path.join(calibration_dir, "reg", "transform_params.npy"))
-    test_params = np.load(os.path.join(test_dir, "reg", "transform_params.npy"))
+    calibration_params = np.load(os.path.join(calibration_dir, "reg", "rigid_params.npy"))
+    test_params = np.load(os.path.join(test_dir, "reg", "rigid_params.npy"))
 
     # First column is calibration; second is inference
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=figsize)
     for i in range(len(ax)):
         if i == 0:
             params = calibration_params
+            res = np.array([5, 7.7, 7.7])
         else:
             params = test_params
-        plot_transform_params(params, title="", ax=ax[:,i], fig=fig)
+            res = np.array([5, 7, 7])
+        plot_transform_params(params, title="", ax=ax[:,i], fig=fig, res=res)
         
     plt.subplots_adjust(wspace=0.2, hspace=0.2)
     
