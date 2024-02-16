@@ -795,12 +795,16 @@ def make_color_dict(N=16, color_inds=None):
     color_dict = dict(zip(color_inds,np.array(colors)))
     return color_dict
 
-def plot_bpt_pt_overlay(img_crop_rss, fb_2400, start=[80,40], p_size=[10,1], scales=[-0.02,0.02], shifts=[7.8,4], c=[9,3]):
+def plot_bpt_pt_overlay(img_crop_rss, fb_2400, pad=True, use_dict=True, start=[80,40], p_size=[10,1], scales=[-0.02,0.02], shifts=[7.8,4], c=[9,3], figsize=(10,7), t_end=30, show_text=True):
     ''' Plot BPT and PT overlaid on patch of image '''
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,7))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
     
     # Color dictionary
-    color_dict = make_color_dict(N=16)
+    if use_dict is True:
+        color_dict = make_color_dict(N=16)
+        colors = [color_dict[c[0]], color_dict[c[1]]]
+    else:
+        colors = ["tab:blue", "tab:orange"]
 
     # Stack parts of image
     im_seg = img_crop_rss[start[0]:start[0]+p_size[0], start[1]:start[1]+p_size[1],:]
@@ -809,42 +813,54 @@ def plot_bpt_pt_overlay(img_crop_rss, fb_2400, start=[80,40], p_size=[10,1], sca
     im = ax.imshow(imstack_all,"gray", interpolation='lanczos')
 
     # Plot overlay
-    bpt_interp = proc.pad_bpt(fb_2400.pt_mag_filtered[0,...], npe=256, nph=100, dda=4)
-    pt_interp = proc.pad_bpt(fb_2400.pt_mag_filtered[1,...], npe=256, nph=100, dda=4)
+    if pad is True:
+        bpt_interp = proc.pad_bpt(fb_2400.pt_mag_filtered[0,...], npe=256, nph=100, dda=4)
+        pt_interp = proc.pad_bpt(fb_2400.pt_mag_filtered[1,...], npe=256, nph=100, dda=4)
+    else:
+        bpt_interp = proc.normalize_c(fb_2400.pt_mag_filtered[1,...])
+        pt_interp = proc.normalize_c(fb_2400.pt_mag_filtered[0,...])
 
     # BPT
     x_axis = np.linspace(-0.5,imstack.shape[-1]-0.5,bpt_interp.shape[0], endpoint=True)
-    ax.plot(x_axis, scales[0]*bpt_interp[...,c[0]] + shifts[0], lw=4, c=color_dict[c[0]], alpha=0.8)
+    ax.plot(x_axis, scales[0]*bpt_interp[...,c[0]] + shifts[0], lw=4, c=colors[0], alpha=0.8)
 
     # PT
-    ax.plot(x_axis, scales[1]*pt_interp[...,c[1]] + shifts[1], lw=4, c=color_dict[c[1]], alpha=0.8)
+    ax.plot(x_axis, scales[1]*pt_interp[...,c[1]] + shifts[1], lw=4, c=colors[1], alpha=0.8)
+    
+    if show_text is True:
     # Text
-    ax.text(0.5,0.9, 'BPT', horizontalalignment='center',
-         verticalalignment='center', transform=ax.transAxes, c=color_dict[c[0]], fontsize=24)
-    ax.text(0.5,0.4, 'PT', horizontalalignment='center',
-         verticalalignment='center', transform=ax.transAxes, c=color_dict[c[1]], fontsize=24)
-    ax.set_xlim([0,30*p_size[1]])
+        ax.text(0.5,0.9, 'BPT', horizontalalignment='center',
+             verticalalignment='center', transform=ax.transAxes, c=colors[0], fontsize=24)
+        ax.text(0.5,0.4, 'PT', horizontalalignment='center',
+             verticalalignment='center', transform=ax.transAxes, c=colors[1], fontsize=24)
+    ax.set_xlim([0,t_end*p_size[1]])
     ax.axis("off")
 
-def plot_img_patch(inpdir, crop_win=40, start=[80,40], p_size=[10,1]):
+def plot_img_patch(inpdir, img_plot=None, crop_win=40, start=[80,40], p_size=[10,1], c="orange", ylim=None, cmax=1500):
     ''' Plot image with overlaid patch '''
-    ksp = np.squeeze(cfl.readcfl(os.path.join(inpdir,"ksp")))
-    # Get image and crop
-    img = sp.ifft(ksp, axes=(0,1))
-    img_crop = img[crop_win:-crop_win,...]
-    img_crop_rss = np.rot90(sp.rss(img_crop, axes=(-1,)),3) # Rotate so chest is facing up
+    if img_plot is None:
+        ksp = np.squeeze(cfl.readcfl(os.path.join(inpdir,"ksp")))
+        # Get image and crop
+        img = sp.ifft(ksp, axes=(0,1))
+        img_crop = img[crop_win:-crop_win,...]
+        img_crop_rss = np.rot90(sp.rss(img_crop, axes=(-1,)),3) # Rotate so chest is facing up
+        img_plot = img_crop_rss[...,0]
+    else:
+        img_crop_rss = None
     
     # Show image with rectangle overlay
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
-    im = ax.imshow(img_crop_rss[...,0],"gray")
+    im = ax.imshow(img_plot,"gray")
     rect = matplotlib.patches.Rectangle([start[1], start[0]],
                              p_size[1],p_size[0],
-                             linewidth=1, edgecolor='orange',
-                             facecolor='orange', alpha=0.8)
+                             linewidth=1, edgecolor=c,
+                             facecolor=c, alpha=0.8)
     ax.add_patch(rect)
-    ax.set_ylim([200,60])
+    if ylim is not None:
+        ax.set_ylim([200,60])
     ax.axis("off")
-    im.set_clim(0,1500)
+    im.set_clim(0,cmax)
+    
     return img_crop_rss
 
 def plot_cardiac_bpt_pt(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
@@ -1249,9 +1265,9 @@ def plot_artifacts(inpdir, shift=200):
     t = np.arange(pt_corr.shape[0])*tr
     plt.figure(figsize=(10,6))
     plt.plot(t-10, pt_uncorr_filt + shift);
-    # plt.plot(t-10, pt_corr_filt);
+    plt.plot(t-10, pt_corr_filt);
     plt.xlim([0,20])
-    # plt.legend(["Uncorrected", "Corrected"])
+    plt.legend(["Uncorrected", "Corrected"])
     # plt.yticks([])
     plt.xlabel("Time (s)")
 
