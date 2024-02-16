@@ -6,6 +6,7 @@ from matplotlib.collections import PolyCollection
 from matplotlib.ticker import FuncFormatter
 import matplotlib
 import matplotlib.colors as mcolors
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import matplotlib.cm as cm
 import sigpy as sp
 import csv
@@ -527,16 +528,34 @@ def plot_accel_comparison(pt_mag, accel_d, coil_inds=np.arange(16,20), start_tim
 def plot_pca_3d(pt_pca, ax=None, fig=None, elev=55, azim=-72, figsize=(10,5), title="", show_idx=False, label_interval=5, s=10, colorbar=True, label=True, rotations=[80,10,90], integer=True):
     if ax is None:
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, subplot_kw={'projection': '3d'})
-    colors = cm.RdBu(np.linspace(0, 1, pt_pca.shape[0]))
+    colors = cm.coolwarm(np.linspace(0, 1, pt_pca.shape[0]))
 
-    # Actual scatterplot
+
+    # Define data points
     x, y, z = pt_pca.T
-    ax.scatter(x, y, z, c=colors, s=s, edgecolor='black', alpha=1)
+    
+    # Have to do this so that the xlims are correct
+    ax.scatter(x, y, z, c=colors, s=s, edgecolor='black', alpha=0)
+
+    # Add lines between points
+    # Define colormap
+    cmap = plt.get_cmap('coolwarm')
+    # Define segments for lines
+    segments = [(np.array([x[i], y[i], z[i]]), np.array([x[(i+1)%len(x)], y[(i+1)%len(y)], z[(i+1)%len(z)]])) for i in range(len(x))]
+    # Create Line3DCollection
+    lc = Line3DCollection(segments, cmap=cmap, alpha=0.4)
+    # Set array to color lines based on colormap
+    lc.set_array(np.arange(len(x)))
+    # Add Line3DCollection to the plot
+    ax.add_collection(lc)
+    
+    # Actual scatterplot
+    ax.scatter(x, y, z, c=colors, s=s, alpha=1)
+
+    
 
     # Angles, labels, and params
     ax.view_init(elev=elev, azim=azim)
-    
-
     if label is True:
         lpad = 5 # Spacing for labels
         ax.set_xlabel("PC 1", labelpad=lpad, rotation=rotations[0])
@@ -544,25 +563,35 @@ def plot_pca_3d(pt_pca, ax=None, fig=None, elev=55, azim=-72, figsize=(10,5), ti
         ax.set_zlabel("PC 3", labelpad=lpad, rotation=rotations[2])
     ax.set_title(title)
     
-    # Remove axis ticks - note that if using xticks instead of xticklabels, the grid disappears!
-    # ax.set_xticklabels([])
-    # ax.set_yticklabels([])
-    # ax.set_zticklabels([])
-    
     for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
         if integer is True:
             axis.set_major_locator(plt.MaxNLocator(nbins=3, integer=True))
             axis.set_major_formatter(FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
         else:
+            axis.set_major_locator(plt.MaxNLocator(nbins=3))
             axis.set_major_formatter(FuncFormatter(lambda x, _: '{:.1f}'.format(x)))
     for axis in ['x', 'y', 'z']:
         ax.tick_params(axis=str(axis), which='both', pad=0)
         
-        # ax.tick_params(axis=axis, which='both', pad=0)
-        # ax.locator_params(axis=axis, nbins=3)
-        # ax.tick_params(axis=axis, which='both', pad=0)
-    # for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+    # Make background transparent?
+    # fig.patch.set_alpha(0.5)  # Set alpha value for the background grid
+    # ax.patch.set_alpha(0.5)  # Set alpha value for the background grid
+    # ax.set_facecolor('lightgrey') 
+    # Change the color of the axes lines
+    ax.xaxis._axinfo['grid'].update(color='lightgray')  # x-axis
+    ax.yaxis._axinfo['grid'].update(color='lightgray')  # y-axis
+    ax.zaxis._axinfo['grid'].update(color='lightgray')  # z-axis
     
+    # Get rid of colored axes planes
+    # First remove fill
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+
+    # Now set color to white (or whatever is "invisible")
+    ax.xaxis.pane.set_edgecolor('w')
+    ax.yaxis.pane.set_edgecolor('w')
+    ax.zaxis.pane.set_edgecolor('w')
     
     # Label all data points
     if show_idx is True:
@@ -1220,9 +1249,9 @@ def plot_artifacts(inpdir, shift=200):
     t = np.arange(pt_corr.shape[0])*tr
     plt.figure(figsize=(10,6))
     plt.plot(t-10, pt_uncorr_filt + shift);
-    plt.plot(t-10, pt_corr_filt);
+    # plt.plot(t-10, pt_corr_filt);
     plt.xlim([0,20])
-    plt.legend(["Uncorrected", "Corrected"])
+    # plt.legend(["Uncorrected", "Corrected"])
     # plt.yticks([])
     plt.xlabel("Time (s)")
 
@@ -1385,7 +1414,9 @@ def plot_colored_lines(x, y, ax=None):
     # Create a smoothly changing colormap along the line
     colors = np.linspace(np.amin(y), np.amax(y), len(y))
     # Define a colormap
-    cmap = plt.cm.RdBu
+    cmap = plt.cm.coolwarm
+    
+    
     # Normalize the color values
     norm = plt.Normalize(np.amin(y), np.amax(y))
     
@@ -1612,3 +1643,33 @@ def plot_im2(im2_fname, title="IP2 at 2.4GHz", ax=None, figsize=(10,5)):
     ax.set_ylabel("Output Power (dBm)")
     ax.set_title(title)
     ax.legend()
+    
+    
+def plot_colorbar():
+    # Create a dummy figure and axes
+    fig, ax = plt.subplots(figsize=(1, 6))  # Adjust the size as needed
+
+    # Create a ScalarMappable with a dummy color map (coolwarm)
+    sm = plt.cm.ScalarMappable(cmap='coolwarm')
+    sm.set_array([])  # Set an empty array
+
+    # Create colorbar
+    cbar = plt.colorbar(sm, ax=ax)
+
+    # Hide the axes
+    ax.axis('off')
+
+    # Remove the outline of the colorbar
+    cbar.outline.set_visible(False)
+
+    # Remove the numbers from the colorbar
+    # cbar.ax.yaxis.set_major_formatter(NullFormatter())
+    cbar.ax.xaxis.set_ticks([])
+    cbar.ax.yaxis.set_ticks([])
+
+    # Set colorbar position to the center
+    cbar.ax.yaxis.set_label_position('left')
+    cbar.ax.yaxis.set_ticks_position('left')
+
+    # Show colorbar
+    plt.show()
