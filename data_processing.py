@@ -858,21 +858,48 @@ def remove_drift(pt):
     ''' Remove drift via linear fit '''
     drift_x = np.arange(pt.shape[0])
     pt_corr = np.empty(pt.shape)
+    drifts = np.empty(pt_corr.shape)
     
     # Remove separately for each coil
     for i in range(pt.shape[1]): # coils + antennas
         p = np.polyfit(drift_x, pt[:,i], deg=1)
         drift_y = np.polyval(p, drift_x)
         pt_corr[:,i] = pt[:,i] - drift_y
+        drifts[:,i] = drift_y # Drift estimate
         
-    return pt_corr
+    return pt_corr, drifts
 
 def remove_drift_all(pts, bpts):
     ''' Remove drift for pt and bpt '''
     pt_corr = pts.copy()
     bpt_corr = bpts.copy()
+    pt_drifts = pts.copy()
+    bpt_drifts = bpts.copy()
     
     for i in range(len(pts)):
-        pt_corr[i] = remove_drift(pts[i])
-        bpt_corr[i] = remove_drift(bpts[i])
-    return pt_corr, bpt_corr
+        pt_corr[i], pt_drifts[i] = remove_drift(pts[i])
+        bpt_corr[i], bpt_drifts[i] = remove_drift(bpts[i])
+    return pt_corr, bpt_corr, pt_drifts, bpt_drifts
+
+
+def get_correlations(pca):
+    ''' Get correlations between PCA traces and corresponding indices '''
+    coeff_inds = np.ones((3,2))
+    coeff_vals = np.ones((3,2))
+
+    for i in range(3):
+        for j in range(2):
+            if j == 0:
+                idx = 1 # BPT
+            else:
+                idx = 2 # PT
+
+            # Get the BPT/PT index that has the highest correlation
+            bpt_ind = np.argmax([np.corrcoef(pca[0,...,i], pca[idx,...,j])[0,1] for j in range(3)])
+            bpt_val = np.amax([np.corrcoef(pca[0,...,i], pca[idx,...,j])[0,1] for j in range(3)])
+
+            # Put in matrix
+            coeff_inds[i,j] = bpt_ind
+            coeff_vals[i,j] = bpt_val
+            
+    return coeff_inds, coeff_vals
