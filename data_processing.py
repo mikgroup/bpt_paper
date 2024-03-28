@@ -18,6 +18,10 @@ import scipy.integrate as integ
 from scipy.optimize import lsq_linear
 from scipy import stats
 
+# TODO CHANGE THIS
+sys.path.append("/mikRAID/sanand/pilot_tone/head_motion/code/head_moco_bpt")
+import cartesian as cart
+
 
 def get_coeffs(cutoff, fs, order=5, btype='low'):
     ''' Generate the low pass filter coefficients '''
@@ -47,7 +51,8 @@ def filter_sig(sig, cutoff, fs, order=6, btype='low'):
     # Get the filter coefficients so we can check its frequency response.
     b, a = get_coeffs(cutoff, fs, order, btype)
     # Filter
-    sig_filt = signal.filtfilt(b, a, sig, padlen=50)
+    # sig_filt = signal.filtfilt(b, a, sig, padlen=50)
+    sig_filt = signal.filtfilt(b, a, sig, padlen=len(sig)-1)
     return sig_filt
 
 def filter_c(bpt, cutoff=1, tr=4.4e-3):
@@ -673,6 +678,53 @@ def load_multicoil_vibration(tr=8.7e-3, t_start=4, T=4, filter_cutoff=np.array([
     
     return f, bpt_cat, bpt_f, labels
 
+def get_combined_filtered_bpt(folder_list, window_length=15, polyorder=3, data_dir="./data"):
+    ''' Load BPT and PT from ScanArchive, combine, and filter with savgol filter '''
+    # Extract BPT from ScanArchive
+    pts = []
+    bpts = []
+    trs = []
+    
+    # Assume folder_list is [train_folder, test_folder]
+    for folder in folder_list:
+        inpdir = os.path.join(data_dir, "head", folder)
+
+        # Get BPT
+        ksp, ksp_zp, tr, bpt = cart.extract_ksp_bpt(inpdir, threshold=0.01, distance=1, hires=False, remove_slices=False)
+
+        # Combine and average over frames
+        pt, bpt = combine_avg_bpt(bpt, avg=True, norm=False)
+
+        # Filter
+        pt_filt = signal.savgol_filter(pt, window_length=window_length, polyorder=polyorder, axis=0)
+        bpt_filt = signal.savgol_filter(bpt, window_length=window_length, polyorder=polyorder, axis=0)
+
+        # Append
+        pts.append(pt_filt)
+        bpts.append(bpt_filt)
+
+    # Load transform params for test data
+    transform_params = np.load(os.path.join(data_dir, "head", folder_list[1], "reg", "rigid_params.npy"))
+    transform_params_filt = signal.savgol_filter(transform_params, window_length=window_length, polyorder=polyorder, axis=0)
+    
+    return pts, bpts, transform_params_filt
+
+
+def get_bpt_pt_pca(pts, bpts, transform_params_filt, ncomps=3):
+    # PCA
+    pt_pca, pt_var_exp = get_pca(normalize_c(pts[0], var=False),
+                                pt2=normalize_c(pts[1], var=False), n_components=ncomps)
+    bpt_pca, bpt_var_exp = get_pca(normalize_c(bpts[0], var=False),
+                                    pt2=normalize_c(bpts[1], var=False), n_components=ncomps)
+
+    # PCA of params themselves as ground truth
+    param_pca, param_var_exp = get_pca(normalize_c(transform_params_filt, var=False), n_components=ncomps)
+
+    # Return PCs and explained variance
+    var_exp = np.array([param_var_exp, bpt_var_exp, pt_var_exp])
+    pca = np.array([param_pca, bpt_pca, pt_pca])
+    return pca, var_exp
+
 
 def load_pca_data(data_dir="./data", train_folder="calibration_small_movement", test_folder="inference_v2", ncomps=3, combine=True, antenna_inds=[0,1]):
     ''' Take PCA of training data and project test data onto learned PCs '''
@@ -801,3 +853,26 @@ def load_imd(im2_fname):
     IP2 = np.array([IP2_in, IP2_out])
     
     return P_in_ext, fund, IMD, IP2
+
+def remove_drift(pt):
+    ''' Remove drift via linear fit '''
+    drift_x = np.arange(pt.shape[0])
+    pt_corr = np.empty(pt.shape)
+    
+    # Remove separately for each coil
+    for i in range(pt.shape[1]): # coils + antennas
+        p = np.polyfit(drift_x, pt[:,i], deg=1)
+        drift_y = np.polyval(p, drift_x)
+        pt_corr[:,i] = pt[:,i] - drift_y
+        
+    return pt_corr
+
+def remove_drift_all(pts, bpts):
+    ''' Remove drift for pt and bpt '''
+    pt_corr = pts.copy()
+    bpt_corr = bpts.copy()
+    
+    for i in range(len(pts)):
+        pt_corr[i] = remove_drift(pts[i])
+        bpt_corr[i] = remove_drift(bpts[i])
+    return pt_corr, bpt_corr

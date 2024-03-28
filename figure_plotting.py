@@ -1512,7 +1512,7 @@ def plot_mod_list(pt_avg_train, N=5, title="", ax=None, figsize=(10,5), shift=-5
     ax.set_title(title)
     
     
-def plot_bpt_pt_head(data_dir="./data", cal_dir="calibration_small_movement", inf_dir="inference_v2", figsize=(15,10)):
+def plot_bpt_pt_head(data_dir="./data", cal_dir="calibration_small_movement", inf_dir="inference_v2", figsize=(15,10), N=4):
     ''' Plot BPT and PT time series data '''
     calibration_dir = os.path.join(data_dir, "head", cal_dir)
     test_dir = os.path.join(data_dir, "head", inf_dir)
@@ -1535,7 +1535,7 @@ def plot_bpt_pt_head(data_dir="./data", cal_dir="calibration_small_movement", in
             pt = pt_avg_test
             bpt = bpt_avg_test
         for j, sig in enumerate([pt, bpt]):
-            plot_mod_list(sig, N=4, title=titles[c], ax=ax[j,i], shift=0)
+            plot_mod_list(sig, N=N, title=titles[c], ax=ax[j,i], shift=0)
             c += 1
 
     plt.subplots_adjust(wspace=0.2, hspace=0.3)
@@ -1689,3 +1689,17 @@ def plot_colorbar():
 
     # Show colorbar
     plt.show()
+
+def test_plot(pts, bpts, N=4, figsize=(10,5)):
+    # First column is calibration; second is inference
+    fig, ax = plt.subplots(nrows=2, ncols=2, figsize=figsize)
+    titles = ["PT train", "BPT train", "PT test", "BPT test"]
+    c = 0
+    for i in range(len(ax)):
+        pt = pts[i]
+        bpt = bpts[i]
+        for j, sig in enumerate([pt, bpt]):
+            plot_mod_list(sig, N=N, title=titles[c], ax=ax[j,i], shift=0)
+            c += 1
+
+    plt.subplots_adjust(wspace=0.2, hspace=0.3)
