@@ -447,7 +447,8 @@ def crop_physio(phys, bpt_len, tr_phys=1e-3, from_front=True):
     phys_len = phys.shape[0]*tr_phys
     phys_diff = phys_len - bpt_len # seconds
     if from_front is True: # Remove from front
-        phys_crop = phys[int(phys_diff//tr_phys):]
+        # phys_crop = phys[int(phys_diff//tr_phys):]
+        phys_crop = phys[int(np.ceil(phys_diff/tr_phys)):]
     else:
         phys_crop = phys[-int(bpt_len//tr_phys):]
     return phys_crop
@@ -678,7 +679,32 @@ def load_multicoil_vibration(tr=8.7e-3, t_start=4, T=4, filter_cutoff=np.array([
     
     return f, bpt_cat, bpt_f, labels
 
-def get_combined_filtered_bpt(folder_list, window_length=15, polyorder=3, data_dir="./data"):
+def combine_avg_bpt(train, tr=None, avg=True, cutoff=5, norm=True, combine=True, antenna_inds=[0,1]):
+    ''' Combine BPT and PT across antennas and average '''
+    if combine is True:
+        pt_combined = np.concatenate((train[0,...], train[-1,...]), axis=-1)
+        bpt_combined = np.concatenate((train[1,...], train[2,...]), axis=-1)
+    else: # Pick data from a single antenna
+        pt_combined = train[antenna_inds[0],...]
+        bpt_combined = train[antenna_inds[1],...]
+    
+    if avg is True:
+        # Average
+        pt_avg_train = np.mean(pt_combined, axis=0)
+        bpt_avg_train = np.mean(bpt_combined, axis=0)
+    else: # Concatenate
+        npoints, nph, ncoils = pt_combined.shape
+        pt_avg_train = filter_c(pt_combined.reshape((npoints*nph,ncoils), order="F"), cutoff=cutoff, tr=tr)
+        bpt_avg_train = filter_c(bpt_combined.reshape((npoints*nph,ncoils), order="F"), cutoff=cutoff, tr=tr)
+        
+    # Additionally remove mean
+    if norm is True:
+        pt_avg_train = normalize_c(pt_avg_train, var=False)
+        bpt_avg_train = normalize_c(bpt_avg_train, var=False)
+        
+    return pt_avg_train, bpt_avg_train
+
+def get_combined_filtered_bpt(folder_list, window_length=15, polyorder=3, data_dir="./data", savgol_filt=True):
     ''' Load BPT and PT from ScanArchive, combine, and filter with savgol filter '''
     # Extract BPT from ScanArchive
     pts = []
@@ -696,8 +722,12 @@ def get_combined_filtered_bpt(folder_list, window_length=15, polyorder=3, data_d
         pt, bpt = combine_avg_bpt(bpt, avg=True, norm=False)
 
         # Filter
-        pt_filt = signal.savgol_filter(pt, window_length=window_length, polyorder=polyorder, axis=0)
-        bpt_filt = signal.savgol_filter(bpt, window_length=window_length, polyorder=polyorder, axis=0)
+        if savgol_filt is True:
+            pt_filt = signal.savgol_filter(pt, window_length=window_length, polyorder=polyorder, axis=0)
+            bpt_filt = signal.savgol_filter(bpt, window_length=window_length, polyorder=polyorder, axis=0)
+        else:
+            pt_filt = pt
+            bpt_filt = bpt
 
         # Append
         pts.append(pt_filt)
@@ -705,17 +735,20 @@ def get_combined_filtered_bpt(folder_list, window_length=15, polyorder=3, data_d
 
     # Load transform params for test data
     transform_params = np.load(os.path.join(data_dir, "head", folder_list[1], "reg", "rigid_params.npy"))
-    transform_params_filt = signal.savgol_filter(transform_params, window_length=window_length, polyorder=polyorder, axis=0)
+    if savgol_filt is True:
+        transform_params_filt = signal.savgol_filter(transform_params, window_length=window_length, polyorder=polyorder, axis=0)
+    else:
+        transform_params_filt = transform_params
     
     return pts, bpts, transform_params_filt
 
 
-def get_bpt_pt_pca(pts, bpts, transform_params_filt, ncomps=3):
+def get_bpt_pt_pca(pts, bpts, transform_params_filt, ncomps=3, coil_inds=np.arange(44)):
     # PCA
-    pt_pca, pt_var_exp = get_pca(normalize_c(pts[0], var=False),
-                                pt2=normalize_c(pts[1], var=False), n_components=ncomps)
-    bpt_pca, bpt_var_exp = get_pca(normalize_c(bpts[0], var=False),
-                                    pt2=normalize_c(bpts[1], var=False), n_components=ncomps)
+    pt_pca, pt_var_exp = get_pca(normalize_c(pts[0][...,coil_inds], var=False),
+                                pt2=normalize_c(pts[1][...,coil_inds], var=False), n_components=ncomps)
+    bpt_pca, bpt_var_exp = get_pca(normalize_c(bpts[0][...,coil_inds], var=False),
+                                    pt2=normalize_c(bpts[1][...,coil_inds], var=False), n_components=ncomps)
 
     # PCA of params themselves as ground truth
     param_pca, param_var_exp = get_pca(normalize_c(transform_params_filt, var=False), n_components=ncomps)
@@ -754,31 +787,6 @@ def load_pca_data(data_dir="./data", train_folder="calibration_small_movement", 
     var_exp = np.array([param_var_exp, bpt_var_exp, pt_var_exp])
     pca = np.array([param_pca, bpt_pca, pt_pca])
     return pca, var_exp
-
-def combine_avg_bpt(train, tr=None, avg=True, cutoff=5, norm=True, combine=True, antenna_inds=[0,1]):
-    ''' Combine BPT and PT across antennas and average '''
-    if combine is True:
-        pt_combined = np.concatenate((train[0,...], train[-1,...]), axis=-1)
-        bpt_combined = np.concatenate((train[1,...], train[2,...]), axis=-1)
-    else: # Pick data from a single antenna
-        pt_combined = train[antenna_inds[0],...]
-        bpt_combined = train[antenna_inds[1],...]
-    
-    if avg is True:
-        # Average
-        pt_avg_train = np.mean(pt_combined, axis=0)
-        bpt_avg_train = np.mean(bpt_combined, axis=0)
-    else: # Concatenate
-        npoints, nph, ncoils = pt_combined.shape
-        pt_avg_train = filter_c(pt_combined.reshape((npoints*nph,ncoils), order="F"), cutoff=cutoff, tr=tr)
-        bpt_avg_train = filter_c(bpt_combined.reshape((npoints*nph,ncoils), order="F"), cutoff=cutoff, tr=tr)
-        
-    # Additionally remove mean
-    if norm is True:
-        pt_avg_train = normalize_c(pt_avg_train, var=False)
-        bpt_avg_train = normalize_c(bpt_avg_train, var=False)
-        
-    return pt_avg_train, bpt_avg_train
 
 
 def get_mod_list(pt_avg_train):
@@ -863,7 +871,9 @@ def remove_drift(pt):
     # Remove separately for each coil
     for i in range(pt.shape[1]): # coils + antennas
         p = np.polyfit(drift_x, pt[:,i], deg=1)
-        drift_y = np.polyval(p, drift_x)
+        # drift_y = np.polyval(p, drift_x)
+        drift_y = p[0]*drift_x # Don't account for mean
+        
         pt_corr[:,i] = pt[:,i] - drift_y
         drifts[:,i] = drift_y # Drift estimate
         
@@ -884,7 +894,7 @@ def remove_drift_all(pts, bpts):
 
 def get_correlations(pca):
     ''' Get correlations between PCA traces and corresponding indices '''
-    coeff_inds = np.ones((3,2))
+    coeff_inds = np.ones((3,2), dtype=int)
     coeff_vals = np.ones((3,2))
 
     for i in range(3):
@@ -895,11 +905,16 @@ def get_correlations(pca):
                 idx = 2 # PT
 
             # Get the BPT/PT index that has the highest correlation
-            bpt_ind = np.argmax([np.corrcoef(pca[0,...,i], pca[idx,...,j])[0,1] for j in range(3)])
-            bpt_val = np.amax([np.corrcoef(pca[0,...,i], pca[idx,...,j])[0,1] for j in range(3)])
+            bpt_ind = np.argmax(np.abs([np.corrcoef(pca[0,...,i], pca[idx,...,j])[0,1] for j in range(3)]))
+            # bpt_val = np.amax(np.abs([np.corrcoef(pca[0,...,i], pca[idx,...,j])[0,1] for j in range(3)]))
+            bpt_val = np.corrcoef(pca[0,...,i], pca[idx,...,bpt_ind])[0,1]
+            
+            # Pick the same index as the pca
+            # bpt_val = np.corrcoef(pca[0,...,i], pca[idx,...,i])[0,1]
 
             # Put in matrix
-            coeff_inds[i,j] = bpt_ind
-            coeff_vals[i,j] = bpt_val
+            coeff_inds[i,j] = bpt_ind.astype(int)
+            # coeff_inds[i,j] = i
+            coeff_vals[i,j] = np.round(bpt_val,2)
             
     return coeff_inds, coeff_vals

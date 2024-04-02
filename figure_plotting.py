@@ -885,7 +885,7 @@ def plot_cardiac_bpt_pt(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
         bpt_idxs = proc.get_max_energy(bpt_mag, tr, f_range=[0.9,3])
 
         # Filter
-        pt_filt = proc.filter_c(pt_mag, cutoff=25, tr=tr)
+        pt_filt = proc.filter_c(pt_mag, cutoff=2, tr=tr)
         bpt_filt = proc.filter_c(bpt_mag, cutoff=25, tr=tr)
 
         # Compare to physio data
@@ -901,7 +901,7 @@ def plot_cardiac_bpt_pt(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
         t = np.arange(pt_mag.shape[0])*tr
 
         ax[i].plot(t, proc.normalize_c(bpt_filt[:,bpt_idxs[:C]]) + np.arange(C)*shift)
-        ax[i].plot(t, proc.normalize(pt_filt[:,21]) + shift*(C))
+        ax[i].plot(t, -1*proc.normalize(pt_filt[:,21]) + shift*(C))
         ax[i].plot(t_ppg, proc.normalize(ppg) + shift*(C+1))
 
         # Labels
@@ -1129,7 +1129,7 @@ def plot_bpt_physio(bpt, accel, ppg, ecg, tr=8.7e-3, tr_ecg=1e-3, tr_ppg=10e-3,
     
     return fig, ax
 
-def plot_8c(inpdir, tr=8.7e-3, cutoff=4, c=[30,24]):
+def plot_8c(inpdir, tr=8.7e-3, cutoff=4, c=[30,24], figsize=(10,10), shift=-6):
     # Load bpt
     bpt = np.squeeze(cfl.readcfl(os.path.join(inpdir,"pt_ravel")))
 
@@ -1142,16 +1142,27 @@ def plot_8c(inpdir, tr=8.7e-3, cutoff=4, c=[30,24]):
     accel, t_accel = proc.get_accel_data(inpdir)
     # Integrate accel -> displacement
     accel_d = proc.get_accel_d(accel, tr=tr, cutoff=cutoff)
+    
+    # Filter PT
+    pt_filt = proc.filter_c(np.abs(bpt[0,...]), tr=tr, cutoff=3)
+    
+    
     # Plot BPT
-    bpt_stack = proc.normalize(np.abs(bpt[1,:,c[1]]), var=True)
-    bpt_stack = bpt_stack[:,None]
+    # bpt_stack = proc.normalize(np.abs(bpt[1,:,c[1]]), var=True)
+    # bpt_stack = bpt_stack[:,None]
+    # Plot BPT
+    bpt_stack = np.vstack((proc.normalize(pt_filt[...,c[0]], var=True),
+                           proc.normalize(np.abs(bpt[1,:,c[1]]), var=True))).T
 
-    labels = ["BPT coil {}".format(c[1] - 16),
+    labels = ["PT coil {}".format(c[0] - 16),
+              "BPT coil {}".format(c[1] - 16),
               "dBCG-y", "PPG", "ECG"]
-    colors = ["tab:red","tab:gray", "tab:green", "tab:blue"]
+    # colors = ["tab:red","tab:gray", "tab:green", "tab:blue"]
+    colors = ["tab:brown", "tab:red","tab:orange", "tab:green", "tab:blue"]
+
     fig, ax = plot_bpt_physio(bpt_stack, accel_d[:,1],
                               ppg, -1*ecg, tr=tr, c=c, norm_var=True,
-                              shift=-6, t_end=7, figsize=(10,10),
+                              shift=shift, t_end=7, figsize=figsize,
                               labels=labels, colors=colors, v_shift=0.2,
                               title="")
     
@@ -1165,7 +1176,7 @@ def plot_accel_bpt(bpt, accel_d, xlim=[0,5], tr=8.7e-3, cutoff=15, v_shift=0.15,
 
     # Labels and colors
     labels = ["BPT-dBCG", "dBCG"]
-    colors = ["purple", "tab:gray"]
+    colors = ["purple", "tab:orange"]
 
     # Plot
     t = proc.get_t_axis(bpt.shape[1], delta_t=tr)
@@ -1498,19 +1509,7 @@ def plot_cal_inference(data_dir="./data", cal_dir="calibration_small_movement", 
         plot_transform_params(params, title="", ax=ax[:,i], fig=fig, res=res)
         
     plt.subplots_adjust(wspace=0.2, hspace=0.2)
-    
-    
-def plot_mod_list(pt_avg_train, N=5, title="", ax=None, figsize=(10,5), shift=-5):
-    ''' Plot N most modulated coils '''
-    pt_mod_list = proc.get_mod_list(pt_avg_train)
-    if ax is None:
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
-
-    ax.plot(proc.normalize_c(pt_avg_train[...,pt_mod_list[:N]], var=False) + np.arange(N)*shift)
-    ax.set_xlabel("Frame index")
-    ax.set_ylabel("Amplitude (a.u.)")
-    ax.set_title(title)
-    
+        
     
 def plot_bpt_pt_head(data_dir="./data", cal_dir="calibration_small_movement", inf_dir="inference_v2", figsize=(15,10), N=4):
     ''' Plot BPT and PT time series data '''
@@ -1689,8 +1688,23 @@ def plot_colorbar():
 
     # Show colorbar
     plt.show()
+    
+def plot_mod_list(pt_avg_train, N=5, title="", ax=None, figsize=(10,5), shift=-5, inds=None):
+    ''' Plot N most modulated coils '''
+    if inds is None:
+        pt_mod_list = proc.get_mod_list(pt_avg_train)
+    else:
+        pt_mod_list = inds
+        
+    if ax is None:
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize)
 
-def test_plot(pts, bpts, N=4, figsize=(10,5)):
+    ax.plot(proc.normalize_c(pt_avg_train[...,pt_mod_list[:N]], var=False) + np.arange(N)*shift)
+    ax.set_xlabel("Frame index")
+    ax.set_ylabel("Amplitude (a.u.)")
+    ax.set_title(title)
+
+def test_plot(pts, bpts, N=4, figsize=(10,5), inds=None):
     # First column is calibration; second is inference
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=figsize)
     titles = ["PT train", "BPT train", "PT test", "BPT test"]
@@ -1699,7 +1713,40 @@ def test_plot(pts, bpts, N=4, figsize=(10,5)):
         pt = pts[i]
         bpt = bpts[i]
         for j, sig in enumerate([pt, bpt]):
-            plot_mod_list(sig, N=N, title=titles[c], ax=ax[j,i], shift=0)
+            plot_mod_list(sig, N=N, title=titles[c], ax=ax[j,i], shift=0, inds=inds)
             c += 1
 
     plt.subplots_adjust(wspace=0.2, hspace=0.3)
+    
+    
+def plot_all_pca_3d(pca, figsize=(15,5), elev=-102, azim=-14, titles=["Registration Parameters", "BPT", "PT"]):
+    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=figsize, subplot_kw={'projection': '3d'})
+    options = [False, True, True]
+
+    for i in range(3):
+        sig = pca[i,...]
+        plot_pca_3d(sig, ax[i], fig=fig, elev=elev, azim=azim, title=titles[i], show_idx=False, s=40, colorbar=False, integer=options[i])
+        plt.subplots_adjust(wspace=0, hspace=0)
+        
+
+def plot_correlations(pca, inds, vals, figsize=(13,10)):
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=figsize)
+    for i in range(3):
+        # Define signals to plot
+        reg_pc = pca[0,...,i]
+        bpt_pc = pca[1,...,inds[i,0]]
+        pt_pc = pca[2,...,inds[i,1]]
+
+        # Get relative scales
+        bpt_scale = np.amax(reg_pc)/np.amax(bpt_pc)
+        pt_scale = np.amax(reg_pc)/np.amax(pt_pc)
+
+        ax[i].plot(reg_pc, label="Registration PC {}".format(i)) # Transform params
+        ax[i].plot(bpt_pc*bpt_scale, label="BPT PC {}, corr = {}".format(inds[i,0], vals[i,0])) # BPT
+        ax[i].plot(pt_pc*pt_scale, label="PT PC {}, corr = {}".format(inds[i,1], vals[i,1])) # PT
+        ax[i].set_title("Registration PCs vs PT and BPT")
+        ax[i].legend()
+        if i == 2:
+            ax[i].set_xlabel("Frame index")
+
+    plt.subplots_adjust(wspace=0, hspace=0.5)
