@@ -13,6 +13,7 @@ from scipy import signal
 from scipy import stats
 import scipy.io as sio
 from sklearn.decomposition import FastICA, PCA
+from sklearn import linear_model
 from scipy.interpolate import interp1d
 import scipy.integrate as integ
 from scipy.optimize import lsq_linear
@@ -743,12 +744,12 @@ def get_combined_filtered_bpt(folder_list, window_length=15, polyorder=3, data_d
     return pts, bpts, transform_params_filt
 
 
-def get_bpt_pt_pca(pts, bpts, transform_params_filt, ncomps=3, coil_inds=np.arange(44)):
+def get_bpt_pt_pca(pts, bpts, transform_params_filt, ncomps=3):
     # PCA
-    pt_pca, pt_var_exp = get_pca(normalize_c(pts[0][...,coil_inds], var=False),
-                                pt2=normalize_c(pts[1][...,coil_inds], var=False), n_components=ncomps)
-    bpt_pca, bpt_var_exp = get_pca(normalize_c(bpts[0][...,coil_inds], var=False),
-                                    pt2=normalize_c(bpts[1][...,coil_inds], var=False), n_components=ncomps)
+    pt_pca, pt_var_exp = get_pca(normalize_c(pts[0], var=False),
+                                pt2=normalize_c(pts[1], var=False), n_components=ncomps)
+    bpt_pca, bpt_var_exp = get_pca(normalize_c(bpts[0], var=False),
+                                    pt2=normalize_c(bpts[1], var=False), n_components=ncomps)
 
     # PCA of params themselves as ground truth
     param_pca, param_var_exp = get_pca(normalize_c(transform_params_filt, var=False), n_components=ncomps)
@@ -918,3 +919,22 @@ def get_correlations(pca):
             coeff_vals[i,j] = np.round(bpt_val,2)
             
     return coeff_inds, coeff_vals
+
+
+def lin_reg(params, bpt, window_length=11, polyorder=4, ncomps=3):
+    # PCA on mean-subtracted data
+    params_filt = signal.savgol_filter(params, window_length=window_length, polyorder=polyorder, axis=0)
+    param_pca, var_exp = get_pca(normalize_c(params_filt, var=False), n_components=ncomps)
+
+    # Create linear regression object
+    regr = linear_model.LinearRegression()
+
+    # Train the model using the training sets
+    regr.fit(bpt, param_pca)
+
+    # Make predictions using the testing set
+    param_train = regr.predict(bpt)
+
+    # Error
+    error = param_train - param_pca
+    return param_train, param_pca, error

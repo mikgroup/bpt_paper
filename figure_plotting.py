@@ -12,6 +12,7 @@ import sigpy as sp
 import csv
 import sys
 import cfl # For data i/o
+from scipy import signal
 import data_processing as proc
 import run_bpt as run
 
@@ -1435,36 +1436,54 @@ def plot_multicoil_vibration(f, bpt_cat, bpt_f, labels, tr=8.7e-3, shifts=[-5,-1
     plt.subplots_adjust(bottom=0.1, wspace=0.1, hspace=0.4)
 
     
-def plot_colored_lines(x, y, ax=None):
+def plot_colored_lines(x, y, ax=None, lw=2, alpha=0.1, smoothness=10):
     if ax is None:
         fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,5))
     # Create a smoothly changing colormap along the line
     colors = np.linspace(np.amin(y), np.amax(y), len(y))
     # Define a colormap
     cmap = plt.cm.coolwarm
-    
-    
+
     # Normalize the color values
     norm = plt.Normalize(np.amin(y), np.amax(y))
-    
+
     # Plot
     for i in range(len(y) - 1):
-        ax.plot(x[i:i+2], y[i:i+2], c=cmap(norm(colors[i])))
+        ax.plot(x[i:i+2], y[i:i+2], c=cmap(norm(colors[i])), lw=lw, alpha=alpha)
         
-def plot_pca_t(pca, figsize=(15,5)):
+        
+def plot_pca_t(pca, figsize=(15,5), alpha=0.3):
     fig, ax = plt.subplots(nrows=1, ncols=3, figsize=figsize)
-    x = np.arange(1, pca.shape[1] + 1)
+    # x = np.arange(1, pca.shape[1] + 1)
+    x = np.arange(pca.shape[1])
     titles = ["Registration Parameters", "BPT", "PT"]
     # Plot with colormap
     for j in range(pca.shape[0]):
         ax[j].set_ylabel("Amplitude (a.u.)")
         ax[j].set_title(titles[j])
         ax[j].set_xlabel("Frame index")
-        for i in range(pca.shape[-1]):
-            plot_colored_lines(x, pca[j,...,i], ax=ax[j])
+        # for i in range(pca.shape[-1]):
+            # Plot colored lines in the background
+            # plot_colored_lines(x, pca[j,...,i], ax=ax[j], lw=10, alpha=0.3, smoothness=1)
+
+        # Plot changing background
+        cmap = plt.cm.coolwarm
+        color_values = np.linspace(0, 1, len(x))
+             
+        # Plot actual plots
+        ax[j].plot(x, pca[j,...])
 
         for axis in ['x', 'y']:
             ax[j].locator_params(axis=axis, nbins=5)
+
+        # Create a single-pixel height image with color mapped from the colormap
+        im = ax[j].imshow([color_values], cmap=cmap, aspect='auto', extent=(x.min(), x.max(), *ax[j].get_ylim()), alpha=alpha)
+        # im = ax[j].imshow([color_values], cmap=cmap, aspect='auto', extent=(x.min(), x.max(), pca[j,...].min()*0.9, pca[j,...].max()*1.1), alpha=alpha)
+
+            
+        # Legend
+        ax[j].legend(["PC {}".format(c) for c in range(3)])
+            
 
     plt.subplots_adjust(wspace=0.4, hspace=0)
     
@@ -1496,6 +1515,10 @@ def plot_cal_inference(data_dir="./data", cal_dir="calibration_small_movement", 
     test_dir = os.path.join(data_dir, "head", inf_dir)
     calibration_params = np.load(os.path.join(calibration_dir, "reg", "rigid_params.npy"))
     test_params = np.load(os.path.join(test_dir, "reg", "rigid_params.npy"))
+    
+    # Filter
+    calibration_params = signal.savgol_filter(calibration_params, window_length=11, polyorder=4, axis=0)
+    test_params = signal.savgol_filter(test_params, window_length=11, polyorder=4, axis=0)
 
     # First column is calibration; second is inference
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=figsize)
@@ -1521,6 +1544,12 @@ def plot_bpt_pt_head(data_dir="./data", cal_dir="calibration_small_movement", in
     # Combine data across antennas and average
     pt_avg_train, bpt_avg_train = proc.combine_avg_bpt(train, avg=True, norm=False)
     pt_avg_test, bpt_avg_test = proc.combine_avg_bpt(test, avg=True, norm=False)
+    
+    # Filter
+    pt_avg_train = signal.savgol_filter(pt_avg_train, window_length=11, polyorder=4, axis=0)
+    pt_avg_test= signal.savgol_filter(pt_avg_test, window_length=11, polyorder=4, axis=0)
+    bpt_avg_train = signal.savgol_filter(bpt_avg_train, window_length=11, polyorder=4, axis=0)
+    bpt_avg_test= signal.savgol_filter(bpt_avg_test, window_length=11, polyorder=4, axis=0)
 
     # First column is calibration; second is inference
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=figsize)
@@ -1750,3 +1779,17 @@ def plot_correlations(pca, inds, vals, figsize=(13,10)):
             ax[i].set_xlabel("Frame index")
 
     plt.subplots_adjust(wspace=0, hspace=0.5)
+    
+    
+def plot_error(bpt_fit, param_pca, mae, figsize=(13,10)):
+    plt.figure(figsize=figsize)
+    for i in range(3):
+        plt.subplot(3,1,i+1)
+        plt.plot(bpt_fit[...,i])
+        plt.plot(param_pca[...,i])
+        plt.legend(["Regressed PT", "Param PC"])
+        plt.title("Regressed PC {}, mean absolute error = {}".format(i, mae[i]))
+        if i == 2:
+            plt.xlabel("Frame index")
+            
+        plt.subplots_adjust(wspace=0, hspace=0.3)
