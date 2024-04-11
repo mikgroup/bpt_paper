@@ -1793,3 +1793,20 @@ def plot_error(bpt_fit, param_pca, mae, figsize=(13,10)):
             plt.xlabel("Frame index")
             
         plt.subplots_adjust(wspace=0, hspace=0.3)
+        
+        
+def plot_reg_results(transformParameters, res=2, figsize=(12,6)):
+    ''' Plot image registration results '''
+    fig, ax = plt.subplots(1,2, figsize=figsize)
+    fig.suptitle('Bulk motion estimates')
+    ax[0].plot(transformParameters[:, 0]/(2*np.pi)*360, '-o')
+    ax[0].legend(['In-plane rotation (clockwise)'])
+    ax[0].set_ylabel('Rotation angle [degrees]')
+    ax[0].set_xlabel('Frame index')
+    
+    ax[1].plot(transformParameters[:, 1:]*res, '-o')
+    ax[1].legend(['Translation horizontal (<-- = +)', 'Translation vertical (V = +)'])
+    ax[1].set_ylabel('Displacement [mm]')
+    ax[1].set_xlabel('Frame index')
+    
+    
