@@ -1625,6 +1625,7 @@ def plot_pt_ecg_ppg(tr=8.7e-3, cutoff=4, shift=-4, figsize=(10,7), data_dir="./d
     
 def plot_regression(params, pt_list, bpt_list, figsize=(13,10)):
     ''' Plot regression comparison '''
+    fnames = ["bpt_reg.png", "pt_reg.png"]
     for j in range(2):
         # BPT / PT
         plt.figure(figsize=figsize)
@@ -1649,12 +1650,14 @@ def plot_regression(params, pt_list, bpt_list, figsize=(13,10)):
             legend = ["Regressed {}".format(label), "PC 1"]
             plt.legend(legend)
             plt.suptitle("Regression with {}".format(label))
+            plt.ylabel("Amplitude (a.u.)")
             plt.subplots_adjust(wspace=0, hspace=0.3)
-    if i == 2:
-        plt.xlabel("Frame index")
+            
+        if i == 2:
+            plt.xlabel("Frame index")
 
-# Save
-# plt.savefig(fnames[j], dpi=300, transparent=True)
+        # Save
+        plt.savefig(fnames[j], dpi=300, transparent=True)
 
 
 def plot_basic(inpdir, tr=3.1e-3, cutoff=15, shift=-5, xlim=[0,10], ax=None, figsize=(10,5), title="", N=5, c_inds=None):
