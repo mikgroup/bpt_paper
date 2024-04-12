@@ -1,4 +1,4 @@
-# **Beat Pilot Tone: Simultaneous MR Imaging and Radio-Frequency Motion Sensing at Arbitrary Frequencies **
+# Beat Pilot Tone: Simultaneous MR Imaging and Radio-Frequency Motion Sensing at Arbitrary Frequencies
 **Authors:** Suma Anand<sup>1</sup>, Michael Lustig<sup>1</sup>
 
 <sup>1</sup> University of California, Berkeley
