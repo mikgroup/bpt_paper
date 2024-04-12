@@ -1,9 +1,9 @@
-# **Beat Pilot Tone: Simultaneous Radio-Frequency Motion Sensing and Imaging at Arbitrary Frequencies in MRI**
+# Beat Pilot Tone: Simultaneous MR Imaging and Radio-Frequency Motion Sensing at Arbitrary Frequencies
 **Authors:** Suma Anand<sup>1</sup>, Michael Lustig<sup>1</sup>
 
 <sup>1</sup> University of California, Berkeley
 
-The notebook <code>figure_plotting.ipynb</code> reproduces the figures and processing from the manuscript "Beat Pilot Tone: Simultaneous Radio-Frequency Motion Sensing and Imaging at Arbitrary Frequencies in MRI" submitted to Magnetic Resonance in Medicine.
+The notebook <code>figure_plotting.ipynb</code> reproduces the figures and processing from the manuscript "Beat Pilot Tone: Simultaneous MR Imaging and Radio-Frequency Motion Sensing at Arbitrary Frequencies" submitted to Magnetic Resonance in Medicine. The notebook <code>estimate_bulk_motion.ipynb</code> shows an example of image registration code used to generate Figure S2.
 
 A preprint of this paper is on [arXiv](https://arxiv.org/abs/2306.10236). 
 
