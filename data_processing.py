@@ -635,6 +635,32 @@ def bpt_reshape(bpt, dims, fwd=True):
         
     return bpt_r
 
+    
+def load_rocker_data(rocker_dir, experiment_list, cutoff=5, N=2, tr=4.3e-3):
+    ''' Load full matrix of rocker data '''
+    inpdir = os.path.join(rocker_dir, experiment_list[0])
+    pt_obj = run.load_bpt_mag_phase(inpdir=inpdir,
+                                   tr=tr,
+                                    ref_coil=0,
+                                    lpfilter=True,
+                                    cutoff=cutoff)
+    # Load data
+    Npts, nro, ncoils = pt_obj.dims
+    pt_mag = np.empty((len(experiment_list), nro, ncoils))
+    
+    for i in range(len(experiment_list)):
+        inpdir = os.path.join(rocker_dir, experiment_list[i])
+        pt_obj = run.load_bpt_mag_phase(inpdir=inpdir,
+                                        tr=tr,
+                                        ref_coil=0,
+                                        lpfilter=True,
+                                        cutoff=cutoff)
+        
+        # Get mag and phase in percent mod units
+        pt_mag[i,...] = np.squeeze(pt_obj.pt_mag_filtered)
+
+    return pt_mag
+
 
 def load_corrected_bpt(inpdir, tr=4.4e-3, ref_coil=0, cutoff=5):
     ''' Load respiratory BPT and correct for artifact '''
@@ -647,8 +673,8 @@ def load_corrected_bpt(inpdir, tr=4.4e-3, ref_coil=0, cutoff=5):
     bpt = filter_c(bpt, cutoff=cutoff, tr=tr)
     
     # Correct artifact
-    ksp = cfl.readcfl(os.path.join(inpdir,"ksp"))
-    nro, npe, nph, ncoils = ksp.shape
+    pt_ref = cfl.readcfl(os.path.join(inpdir,"pt")).squeeze()
+    npe, ncoils, nph, npts = pt_ref.shape
     bpt_r = bpt_reshape(bpt, dims=(npe,ncoils,nph), fwd=False)
     bpt_corr, artifact = lin_correct_all_phases(bpt_r, corr_drift=False, demean=False)
     

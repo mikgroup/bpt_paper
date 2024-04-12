@@ -248,36 +248,6 @@ def plot_field_w_coils(inpdir, figsize=(16.7,5), xlim=[-45,35], ylim=[-35,35], l
     # Plot rectangle overlay
     plot_rect(axs, width=14, height=10, overlap=[6,3], n_rect=3, lw=lw)
     
-    
-def load_rocker_data(rocker_dir, experiment_list, cutoff=5, N=2, tr=4.3e-3):
-    ''' Load full matrix of rocker data '''
-    inpdir = os.path.join(rocker_dir, experiment_list[0])
-    pt_obj = run.load_bpt_mag_phase(inpdir=inpdir,
-                                   tr=tr,
-                                    ref_coil=0,
-                                    lpfilter=True,
-                                    cutoff=cutoff)
-    # Load data
-    Npts, nro, ncoils = pt_obj.dims
-    pt_mag = np.empty((len(experiment_list), nro, ncoils))
-    c_mat = np.empty((len(experiment_list), ncoils-N))
-    
-    for i in range(len(experiment_list)):
-        inpdir = os.path.join(rocker_dir, experiment_list[i])
-        pt_obj = run.load_bpt_mag_phase(inpdir=inpdir,
-                                        tr=tr,
-                                        ref_coil=0,
-                                        lpfilter=True,
-                                        cutoff=cutoff)
-        
-        # Get mag and phase in percent mod units
-        pt_mag[i,...] = np.squeeze(pt_obj.pt_mag_filtered)
-        
-        # Record which coils are saved
-        c_mat[i,...] = c_inds
-    
-    return pt_mag, c_mat.astype(int)
-
 def load_csv(inpdir, fname):
     ''' Load csv as np array. Will return as strings if there are any strings '''
     data = []
@@ -398,52 +368,6 @@ def plot_overlaid_data(data_all, f_combined, error_samp=400):
 
     # Adjust spacing
     # plt.subplots_adjust(bottom=0.15, wspace=0.3, hspace=0.2)
-    
-def plot_meas_data(pt_mag, f_combined, figsize=(12,5), c=np.array([9,8,10]), tr=4.3e-3):
-    # Plot experimental data
-    # T = 100/13 * 2 + 0.5 # period, seconds
-    T = 100/13
-    
-    # Manually define start times
-    t_starts = np.flip(np.array([3.89, 1.212,
-                         5, 6.49,
-                         4.2, 6.79])) # Long
-
-
-    tlims = np.array([[t_starts[i], t_starts[i] + T] for i in range(len(t_starts))])
-
-    # Plot magnitude
-    fig, ax = plt.subplots(nrows=2, ncols=3, figsize=figsize)
-    axs = ax.flatten()
-    # Loop over freqs
-    for i in range(len(axs)):
-        t = np.arange(pt_mag.shape[1])*tr
-
-        # Define range
-        t_start, t_end = tlims[i]
-        n_start = np.where(np.logical_and((t >= t_start), t <= t_start + 2*tr))[0][0]
-        n_end = np.where(np.logical_and((t >= t_end), t <= t_end + 2*tr))[0][0]  
-
-        # Get percent mod
-        plot_data = pt_mag[i,:,c].T
-        plot_data_mod = (plot_data[n_start:n_end,...]/np.mean(plot_data[n_start:n_end,...], axis=0) - 1)*100
-        # xpos = np.linspace(0,20,plot_data_mod.shape[0])
-        xpos = np.linspace(0,10,plot_data_mod.shape[0])
-        
-        # Plot
-        axs[i].plot(xpos, plot_data_mod)
-        axs[i].set_title(str(f_combined[i]) + " MHz")
-        axs[i].yaxis.set_major_locator(plt.MaxNLocator(5))
-
-        # Reset label
-        # axs[i].set_xticks([0,10,20], labels=[0,10,0])
-        axs[i].set_xticks([0,5,10])
-
-        if i < 3:
-            axs[i].set_xticks([])
-
-    # Adjust spacing
-    plt.subplots_adjust(bottom=0.15, wspace=0.3, hspace=0.2)
     
 def plot_vibration(pt_mag_mat, t_starts, f_combined, period=12, tr=4.3e-3,
                    shifts=[-30, -50, -500, -100, -100, -100],
@@ -918,8 +842,6 @@ def plot_raw_cardiac_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
     freqs = outdir_list
     shifts = [-5, -5, -5, -9, -9, -9]
     ylims = [[-7,7], [-7,7], [-5,5], [-12,7], [-15,7], [-15,7]]
-    # Actual plot
-    # colors = ["tab:red", "tab:cyan"]
     fig, ax = plt.subplots(figsize=(10,3), nrows=1, ncols=6)
 
     for i in range(len(outdir_list)):
@@ -935,158 +857,14 @@ def plot_raw_cardiac_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
         # Sort indices by max energy in cardiac frequency band
         idxs = proc.get_max_energy(pt_mag, tr, f_range=[0.9,3])
         
-        # FOR DEBUGGING
-        print("\nmax inds = {}".format(idxs[:num_max]))
-
-        # Plot
-        # plt.subplot(1,6,i+1)
-        
+        # Plot loop
         t = np.arange(pt_mag.shape[0])*tr
         for k in range(num_max):
             ax[i].plot(t, proc.normalize(pt_mag[:,idxs[k]]) + shifts[i]*k, lw=1)
-            # plt.plot(t, proc.normalize(pt_mag[:,idxs[k]]) + shifts[i]*k, lw=1, color=colors[k])
             
         ax[i].set_xlim([t_start,t_end])
         ax[0].set_ylabel("Amplitude (a.u.)")
         ax[i].yaxis.set_major_locator(plt.MaxNLocator(4))
-        # plt.yticks([])
-        # plt.ylim([np.amin(pt_mag[:,idxs]), np.amax(pt_mag[:,idxs]) + shifts[i]])
-        # plt.ylim(ylims[i])
-            
-def plot_cardiac_ica_v2(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
-                             trs = np.array([4.312, 4.342, 4.321, 4.32, 4.326, 4.33])*1e-3,
-                            titles = ["127.8MHz", "300MHz", "800MHz", "1.2GHz","1.8GHz","2.4GHz"],
-                             t_start=0, t_end=2, shift=-8, cutoffs = np.array([2, 2, 15, 15, 15, 15]).astype(int)):
-    ''' Plot cardiac signals after PCA, ICA, and filtering '''
-    k = 3 # Number of ICA comps
-    fig, ax = plt.subplots(1,6, sharex=True,figsize=(10,3))
-    for i in range(len(outdir_list)):
-        # Get signals
-        tr = trs[i] # Slightly different TR for each scan
-        pt_full = np.squeeze(cfl.readcfl(os.path.join(inpdir, outdir_list[i],"pt_ravel")))
-        
-        # Select PT instead of BPT
-        if i == 0:
-            bpt = pt_full[0,...]
-        else:
-            bpt = pt_full[1,...]
-            
-        # Filter and PCA/ICA
-        bpt_med, PCA_comps, ICA_comps, bpt_filt = proc.extract_cardiac(bpt, tr, k=k,
-                                                                  lpfilter=True,
-                                                                  cutoff=cutoffs[i],
-                                                                  whiten_med=True)
-
-        # Account for DDA
-        t = np.arange(bpt.shape[0])*tr
-
-        # Compare to physio data
-        bpt_len = bpt.shape[0]*tr
-        ppg = proc.get_physio_waveforms(os.path.join(inpdir, outdir_list[i]), bpt_len,
-                                        load_ppg=True, load_ecg=False,
-                                        from_front=True)[0]
-
-        t_ppg = np.arange(ppg.shape[0])*10e-3
-
-        # Color
-        if i == 0:
-            color = "tab:green"
-        else:
-            color = "darkmagenta"
-
-        # ICA comp index to compare
-        idx = proc.get_max_energy(ICA_comps,tr,f_range=[0.9, 5])
-        # ax[i].plot(t, proc.normalize_c(bpt_filt) + np.arange(k)*shift, lw=1)
-        ax[i].plot(t, -1*proc.normalize(bpt_filt[:,idx[0]]), lw=1, c=color)
-        ax[i].plot(t_ppg, proc.normalize(ppg) + shift*3, lw=1, color="tab:red")
-        ax[i].set_xlim([t_start,t_end])
-        # ax[i].set_yticks([])
-        ax[0].set_ylabel("Amplitude (a.u.)")
-        ax[i].yaxis.set_major_locator(plt.MaxNLocator(4))
-
-
-def plot_raw_cardiac(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
-                             trs = np.array([4.312, 4.342, 4.321, 4.32, 4.326, 4.33])*1e-3,
-                    titles = ["127.8MHz", "300MHz", "800MHz", "1.2GHz","1.8GHz","2.4GHz"],
-                    t_start=0, t_end=2, shift=-8, num_max=2):
-    ''' Plot coils with most energy for each frequency '''
-    freqs = outdir_list
-    shifts = [-5, -5, -5, -9, -9, -9]
-    ylims = [[-7,7], [-7,7], [-5,5], [-12,7], [-15,7], [-15,7]]
-    # Actual plot
-    plt.figure(figsize=(10,3))
-    colors = ["tab:red", "tab:cyan"]
-
-    for i in range(len(outdir_list)):
-        pt_mag = np.abs(np.squeeze(cfl.readcfl(os.path.join(inpdir, outdir_list[i],"pt_ravel"))))
-
-        
-        tr = trs[i]
-        # Sort indices by max energy in cardiac frequency band
-        idx = proc.get_max_energy(pt_mag, tr, f_range=[1,15])
-        idxs = np.flip(np.argsort(energy))
-
-
-        # Plot
-        plt.subplot(1,6,i+1)
-        t = np.arange(pt_mag.shape[0])*tr
-        for k in range(num_max):
-            plt.plot(t, proc.normalize(pt_mag[:,idxs[k]]) + shifts[i]*k, lw=1, color=colors[k])
-        plt.xlim([t_start,t_end])
-        plt.yticks([])
-        plt.ylim(ylims[i])
-        if i == 5:
-            plt.xlabel("Time(s)")
-    
-    
-def plot_cardiac_ica(inpdir, outdir_list = np.array([127, 300, 800, 1200, 1800, 2400]).astype(str),
-                             trs = np.array([4.312, 4.342, 4.321, 4.32, 4.326, 4.33])*1e-3,
-                            titles = ["127.8MHz", "300MHz", "800MHz", "1.2GHz","1.8GHz","2.4GHz"],
-                             t_start=0, t_end=2, shift=-8):
-    ''' Plot cardiac signals after PCA, ICA, and filtering '''
-    # Filter cutoffs
-    cutoffs = np.array([3, 3, 3, 20, 20, 20]).astype(int)
-    k = 3 # Number of ICA comps
-    fig, axs = plt.subplots(1,6, sharex=True,figsize=(10,3))
-    ax = axs.flatten()
-    for i in range(len(outdir_list)):
-        # Get signals
-        tr = trs[i] # Slightly different TR for each scan
-        bpt = np.squeeze(cfl.readcfl(os.path.join(inpdir, outdir_list[i],"pt_ravel")))
-        # Filter and PCA/ICA
-        bpt_med, PCA_comps, ICA_comps, bpt_filt = proc.extract_cardiac(bpt, tr, k=k,
-                                                                  lpfilter=True,
-                                                                  cutoff=cutoffs[i],
-                                                                  whiten_med=True)
-
-        # Account for DDA
-        bpt_pad = proc.pad_bpt(bpt_filt, npe=256, nph=30, dda=4, kind="linear")
-        t = np.arange(bpt_pad.shape[0])*tr
-
-        # Compare to physio data
-        bpt_len = bpt_pad.shape[0]*tr
-        ecg, ppg = proc.get_physio_waveforms(os.path.join(inpdir, outdir_list[i]), bpt_len,
-                                        tr_ppg=10e-3, tr_ecg=1e-3,
-                                        load_ppg=True, load_ecg=True,
-                                        from_front=True)
-
-        t_ppg = np.arange(ppg.shape[0])*10e-3
-        t_ecg = np.arange(ecg.shape[0])*1e-3
-
-        # Color
-        if i == 0:
-            color = "tab:green"
-        else:
-            color = "darkmagenta"
-
-        # ICA comp index to compare
-        energy, idx = proc.get_max_energy(ICA_comps,tr,f_range=[5,15])
-        ax[i].plot(t, proc.normalize(bpt_pad[:,idx[0]]), lw=1, c=color)
-        ax[i].plot(t_ppg, proc.normalize(ppg) + shift*1, lw=1, color="tab:orange")
-        ax[i].plot(t_ecg, proc.normalize(ecg) + shift*2, lw=1, color="tab:blue")
-        ax[i].set_xlim([t_start,t_end])
-        ax[i].set_yticks([])
-
         
 def plot_bpt_physio(bpt, accel, ppg, ecg, tr=8.7e-3, tr_ecg=1e-3, tr_ppg=10e-3,
                     c=[16], norm_var=True,
@@ -1284,7 +1062,7 @@ def plot_artifacts(inpdir, shift=200):
     plt.xlabel("Time (s)")
 
 
-def plot_snr(snr_img, snr_cov, figsize=(30,10)):
+def plot_snr_mat(snr_img, snr_cov, figsize=(30,10)):
     ''' Plot SNR from phantom data '''
     # Image
     snr_disp = snr_img.copy()
@@ -1377,8 +1155,10 @@ def plot_bpt_accel(data_mat, tr=8.7e-3, figsize=(10,5), shifts=[-1,-2,-1], scale
 def plot_supp_peaks_bpt(tr=4.4e-3, cutoff=5, figsize=(10,5), shift=-2, title=""):
     '''' Plot supplemental figure of respiratory signal with multiple peaks '''
     # TODO change this
-    basedir = "/mikRAID/sanand/pilot_tone/data/volunteer_sweep_042622/abdomen/"
-    inpdir_list = [f for f in os.listdir(basedir) if "fb" in f]
+    # basedir = "/mikRAID/sanand/pilot_tone/data/volunteer_sweep_042622/abdomen/"
+    basedir = "./data/resp/"
+    # inpdir_list = [f for f in os.listdir(basedir) if "fb" in f]
+    inpdir_list = ["300_fb", "800_fb", "1200_fb", "1800_fb", "2400_fb"]
 
     # Construct matrix of BPT data from each frequency
     bpt_corr, bpt = proc.load_corrected_bpt(os.path.join(basedir,inpdir_list[0]), tr=tr, ref_coil=0, cutoff=cutoff)
@@ -1809,4 +1589,99 @@ def plot_reg_results(transformParameters, res=2, figsize=(12,6)):
     ax[1].set_ylabel('Displacement [mm]')
     ax[1].set_xlabel('Frame index')
     
+    
+def plot_pt_ecg_ppg(tr=8.7e-3, cutoff=4, shift=-4, figsize=(10,7), data_dir="./data"):
+    ''' Plot PT vs ECG and PPG '''
+    inpdir = os.path.join(data_dir, 'dbcg')
+    # Load data
+    bpt = np.squeeze(cfl.readcfl(os.path.join(inpdir,"pt_ravel")))
+    accel, _ = proc.get_accel_data(inpdir)
+    accel_d = proc.get_accel_d(accel, tr=tr, cutoff=cutoff)
+
+    # Get ECG and PPG
+    [ecg, ppg] = proc.get_physio_waveforms(inpdir, bpt_len=bpt.shape[1]*tr,
+                                           tr_ppg=10e-3, tr_ecg=1e-3,
+                                           from_front=True,
+                                           index=1)
+
+    # Filter PT
+    pt_filt = proc.filter_c(np.abs(bpt[0,...]), tr=tr, cutoff=3)
+
+    # Plot
+    t = np.arange(bpt.shape[1])*tr
+    t_ecg = proc.get_t_axis(ecg.shape[0], delta_t=1e-3)
+    t_ppg = proc.get_t_axis(ppg.shape[0], delta_t=10e-3)
+
+    plt.figure(figsize=figsize)
+    plt.plot(t_ppg, proc.normalize(ppg))
+    plt.plot(t, proc.normalize(np.abs(pt_filt[...,30])) + 0.5*shift)
+    plt.plot(t_ecg, -1*proc.normalize(ecg) + 2*shift)
+    plt.xlim([0,5])
+    plt.legend(["PPG", "PT", "ECG"], loc="upper right")
+    plt.xlabel("Time (s)")
+    plt.title("PT vs PPG and ECG")
+    plt.ylabel("Amplitude (a.u.)")
+    plt.xticks(np.round(np.linspace(0,5,10),1))
+    
+def plot_regression(params, pt_list, bpt_list, figsize=(13,10)):
+    ''' Plot regression comparison '''
+    for j in range(2):
+        # BPT / PT
+        plt.figure(figsize=figsize)
+        if j == 0:
+            plot_list = bpt_list
+            label = "BPT"
+
+        else:
+            plot_list = pt_list
+            label = "PT"
+
+        suptitles = ["Top","Side","Both"]
+
+        # Both antennas, top antenna, side antenna
+        for i, pt_sig in enumerate(plot_list):
+            pt_fit, param_pca, error = proc.lin_reg(params, pt_sig, window_length=11, polyorder=4, ncomps=3)
+            mae = np.round(np.mean(np.abs(error), axis=0),4)
+            plt.subplot(3,1,i+1)
+            plt.plot(pt_fit[...,1])
+            plt.plot(param_pca[...,1])
+            plt.title(suptitles[i] + ", MAE = {}".format(mae[1]))
+            legend = ["Regressed {}".format(label), "PC 1"]
+            plt.legend(legend)
+            plt.suptitle("Regression with {}".format(label))
+            plt.subplots_adjust(wspace=0, hspace=0.3)
+    if i == 2:
+        plt.xlabel("Frame index")
+
+# Save
+# plt.savefig(fnames[j], dpi=300, transparent=True)
+
+
+def plot_basic(inpdir, tr=3.1e-3, cutoff=15, shift=-5, xlim=[0,10], ax=None, figsize=(10,5), title="", N=5, c_inds=None):
+    ''' Plot coils '''
+    pt_obj = run.load_bpt_mag_phase(inpdir,
+                                    tr=tr, lpfilter=True,
+                                    cutoff=cutoff, threshold=0.5)
+    pt = np.squeeze(pt_obj.pt_mag_filtered)
+    t = np.arange(pt_obj.dims[1])*tr
+    ncoils = pt.shape[-1]
+    print(pt.shape)
+    
+    # Plot
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+        
+    # Percent mod
+    if c_inds is None:
+        # Plot the top N most modulated coils
+        pt_mod = np.squeeze(pt_obj.pt_mag_mod)
+        mod_sort = np.flip(np.argsort(np.mean(np.abs(pt_mod), axis=0))) # Mean abs modulation
+        ax.plot(t, proc.normalize_c(pt_mod[...,mod_sort[:N]], var=False) + np.arange(N)*shift);
+        ax.legend(mod_sort[:N])
+    else:
+        ax.plot(t, proc.normalize_c(pt[...,c_inds], var=False) + np.arange(c_inds.shape[0])*shift)
+        ax.legend(c_inds)
+    ax.set_xlim(xlim)
+    ax.set_title(title)
+    ax.set_xlabel("Time (s)")
     
