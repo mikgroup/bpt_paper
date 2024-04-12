@@ -1585,7 +1585,7 @@ def plot_reg_results(transformParameters, res=2, figsize=(12,6)):
     ax[0].set_xlabel('Frame index')
     
     ax[1].plot(transformParameters[:, 1:]*res, '-o')
-    ax[1].legend(['Translation horizontal (<-- = +)', 'Translation vertical (V = +)'])
+    ax[1].legend(['Horizontal translation (<-- = +)', 'Vertical translation (V = +)'])
     ax[1].set_ylabel('Displacement [mm]')
     ax[1].set_xlabel('Frame index')
     
@@ -1684,4 +1684,79 @@ def plot_basic(inpdir, tr=3.1e-3, cutoff=15, shift=-5, xlim=[0,10], ax=None, fig
     ax.set_xlim(xlim)
     ax.set_title(title)
     ax.set_xlabel("Time (s)")
+    
+def get_combined_colors():
+    ''' Get colormap with tab 20 and tab 20c colors '''
+    # Get the tab20 and tab20c colormaps
+    tab20_cmap = plt.cm.get_cmap('tab20')
+    tab20c_cmap = plt.cm.get_cmap('tab20b')
+
+    # Get colors from the tab20 colormap
+    tab20_colors = [tab20_cmap(i) for i in range(20)]
+
+    # Get colors from the tab20c colormap
+    tab20c_colors = [tab20c_cmap(i) for i in range(10)]
+
+    # Combine the colors from both colormaps
+    # combined_colors = [color for pair in zip(tab20_colors, tab20c_colors) for color in pair]
+    combined_colors = tab20_colors + tab20c_colors
+    return combined_colors
+
+    
+def plot_coil(sort_indices, N_max=100, psize=5, lim=[100,160], zero_index=False, head_coil=True, title="", coords=None, figsize=(10,8)):
+    ''' Make a 3d scatterplot of indices '''
+    ncoils = sort_indices.shape[0]
+    # Creating figure
+    fig = plt.figure(figsize = figsize)
+    ax = plt.axes(projection = "3d")
+    nx = 1
+    
+    # Generate indices
+    if coords is None:
+        x = np.arange(256)
+        X,Y,Z = np.meshgrid(x,x,x)
+    else:
+        X,Y,Z = coords
+        
+    colors = get_combined_colors()
+    
+    if zero_index:
+        annotations = np.arange(ncoils)
+    else:
+        annotations = np.arange(ncoils) + 16
+    
+    center_locs = np.empty((ncoils, 3))
+    for coil_idx in range(ncoils):
+        # Creating plot
+        scatter = ax.scatter(X.flatten()[sort_indices[coil_idx, :N_max]],
+                     Y.flatten()[sort_indices[coil_idx, :N_max]],
+                     Z.flatten()[sort_indices[coil_idx, :N_max]],
+                     s=psize, label='Coil {}'.format(annotations[coil_idx]),
+                     color=colors[coil_idx*nx])
+        # Text label
+        x_center = np.sum(X.flatten()[sort_indices[ coil_idx, :N_max]])/N_max
+        y_center = np.sum(Y.flatten()[sort_indices[ coil_idx, :N_max]])/N_max
+        z_center = np.sum(Z.flatten()[sort_indices[ coil_idx, :N_max]])/N_max
+        center_locs[coil_idx,:] = np.array([x_center, y_center, z_center])
+
+        ax.text(x_center, y_center, z_center,
+                 annotations[coil_idx], 
+                 color='k',
+                zorder=scatter.get_zorder()+30,
+                 size=12)
+        
+        ax.set_xlim(lim)
+        ax.set_ylim(lim)
+        if head_coil:
+            ax.set_zlim(lim[::-1]) # So that coils 8/9 are the most anterior
+        plt.title(title)
+        
+        ax.set_xlabel('X (L-R)')
+        ax.set_ylabel('Y (A-P)')
+        ax.set_zlabel('Z (H-F)')
+
+    ax.view_init(elev=0, azim=0)
+    plt.show()
+    
+    return X,Y,Z,center_locs, ax
     
