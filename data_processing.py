@@ -964,3 +964,20 @@ def lin_reg(params, bpt, window_length=11, polyorder=4, ncomps=3):
     # Error
     error = param_train - param_pca
     return param_train, param_pca, error
+
+def get_reg_corr(pt_list, bpt_list, params):
+    ''' Get correlations between regressed BPT/PT and params '''
+    corr_mat = np.zeros((2, 3, 3))
+
+    for k in range(2):
+        if k == 0:
+            data_list = bpt_list
+        else:
+            data_list = pt_list
+
+        for j in range(3):
+            pt_fit, param_pca, error = lin_reg(params, data_list[j], window_length=11, polyorder=4, ncomps=3)
+            corrs = np.array([np.corrcoef(pt_fit[...,i], param_pca[...,i])[0,1] for i in range(param_pca.shape[1])])
+            corr_mat[k,:,j] = corrs
+
+    return np.concatenate(np.round(corr_mat,3), axis=1)

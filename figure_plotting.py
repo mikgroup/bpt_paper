@@ -826,7 +826,7 @@ def plot_cardiac_bpt_pt(inpdir, outdir_list = np.array([127, 300, 800, 1200, 180
         t = np.arange(pt_mag.shape[0])*tr
 
         ax[i].plot(t, proc.normalize_c(bpt_filt[:,bpt_idxs[:C]]) + np.arange(C)*shift)
-        ax[i].plot(t, -1*proc.normalize(pt_filt[:,21]) + shift*(C))
+        ax[i].plot(t, -1*proc.normalize(pt_filt[:,21]) + shift*(C)) # Invert PT
         ax[i].plot(t_ppg, proc.normalize(ppg) + shift*(C+1))
 
         # Labels
@@ -1642,11 +1642,14 @@ def plot_regression(params, pt_list, bpt_list, figsize=(13,10)):
         # Both antennas, top antenna, side antenna
         for i, pt_sig in enumerate(plot_list):
             pt_fit, param_pca, error = proc.lin_reg(params, pt_sig, window_length=11, polyorder=4, ncomps=3)
-            mae = np.round(np.mean(np.abs(error), axis=0),4)
+            # mae = np.round(np.mean(np.abs(error), axis=0),4)
+            corrs = np.round(np.array([np.corrcoef(pt_fit[...,i], param_pca[...,i])[0,1] for i in range(param_pca.shape[1])]),3)
+            
             plt.subplot(3,1,i+1)
             plt.plot(pt_fit[...,1])
             plt.plot(param_pca[...,1])
-            plt.title(suptitles[i] + ", MAE = {}".format(mae[1]))
+            # plt.title(suptitles[i] + ", MAE = {}".format(mae[1]))
+            plt.title(suptitles[i] + ", corr = {}".format(corrs[1]))
             legend = ["Regressed {}".format(label), "PC 1"]
             plt.legend(legend)
             plt.suptitle("Regression with {}".format(label))
