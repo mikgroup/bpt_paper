@@ -935,7 +935,7 @@ def plot_8c(inpdir, tr=8.7e-3, cutoff=4, c=[30,24], figsize=(10,10), shift=-6):
 
     labels = ["PT coil {}".format(c[0] - 16),
               "BPT coil {}".format(c[1] - 16),
-              "dBCG-y", "PPG", "ECG"]
+              "dBCG", "PPG", "ECG"]
     # colors = ["tab:red","tab:gray", "tab:green", "tab:blue"]
     colors = ["tab:brown", "tab:red","tab:orange", "tab:green", "tab:blue"]
 
@@ -1567,7 +1567,7 @@ def plot_error(bpt_fit, param_pca, mae, figsize=(13,10)):
         plt.subplot(3,1,i+1)
         plt.plot(bpt_fit[...,i])
         plt.plot(param_pca[...,i])
-        plt.legend(["Regressed PT", "Param PC"])
+        plt.legend(["Regressed PT", "Reg-PC {}".format(i)])
         plt.title("Regressed PC {}, mean absolute error = {}".format(i, mae[i]))
         if i == 2:
             plt.xlabel("Frame index")
@@ -1650,7 +1650,7 @@ def plot_regression(params, pt_list, bpt_list, figsize=(13,10)):
             plt.plot(param_pca[...,1])
             # plt.title(suptitles[i] + ", MAE = {}".format(mae[1]))
             plt.title(suptitles[i] + ", corr = {}".format(corrs[1]))
-            legend = ["Regressed {}".format(label), "PC 1"]
+            legend = ["Regressed {}".format(label), "Reg-PC 1"]
             plt.legend(legend)
             plt.suptitle("Regression with {}".format(label))
             plt.ylabel("Amplitude (a.u.)")
@@ -1660,7 +1660,7 @@ def plot_regression(params, pt_list, bpt_list, figsize=(13,10)):
             plt.xlabel("Frame index")
 
         # Save
-        plt.savefig(fnames[j], dpi=300, transparent=True)
+        # plt.savefig(fnames[j], dpi=300, transparent=True)
 
 
 def plot_basic(inpdir, tr=3.1e-3, cutoff=15, shift=-5, xlim=[0,10], ax=None, figsize=(10,5), title="", N=5, c_inds=None):
