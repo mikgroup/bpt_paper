@@ -19,10 +19,6 @@ import scipy.integrate as integ
 from scipy.optimize import lsq_linear
 from scipy import stats
 
-# TODO CHANGE THIS
-sys.path.append("/mikRAID/sanand/pilot_tone/head_motion/code/head_moco_bpt")
-import cartesian as cart
-
 
 def get_coeffs(cutoff, fs, order=5, btype='low'):
     ''' Generate the low pass filter coefficients '''
@@ -743,7 +739,8 @@ def get_combined_filtered_bpt(folder_list, window_length=15, polyorder=3, data_d
         inpdir = os.path.join(data_dir, "head", folder)
 
         # Get BPT
-        ksp, ksp_zp, tr, bpt = cart.extract_ksp_bpt(inpdir, threshold=0.01, distance=1, hires=False, remove_slices=False)
+        bpt = np.real(cfl.readcfl(os.path.join(inpdir, "bpt"))) # Magnitude
+        # ksp, ksp_zp, tr, bpt = cart.extract_ksp_bpt(inpdir, threshold=0.01, distance=1, hires=False, remove_slices=False)
 
         # Combine and average over frames
         pt, bpt = combine_avg_bpt(bpt, avg=True, norm=False)
