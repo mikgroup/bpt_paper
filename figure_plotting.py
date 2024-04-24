@@ -915,8 +915,7 @@ def plot_8c(inpdir, tr=8.7e-3, cutoff=4, c=[30,24], figsize=(10,10), shift=-6):
     # Get ECG and PPG
     [ecg, ppg] = proc.get_physio_waveforms(inpdir, bpt_len=bpt.shape[1]*tr,
                                            tr_ppg=10e-3, tr_ecg=1e-3,
-                                           from_front=True,
-                                           index=1)
+                                           from_front=True)
     # Get accel data
     accel, t_accel = proc.get_accel_data(inpdir)
     # Integrate accel -> displacement

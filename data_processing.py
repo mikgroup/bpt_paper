@@ -452,11 +452,12 @@ def crop_physio(phys, bpt_len, tr_phys=1e-3, from_front=True):
 
 def get_physio_waveforms(inpdir, bpt_len=None,
                          tr_ppg=10e-3, tr_ecg=1e-3,
-                         load_ppg=True, load_ecg=True, from_front=True, index=0):
+                         load_ppg=True, load_ecg=True, from_front=True):
     ''' Load ECG and PPG data based on input directory. First ECG by default '''
     phys_waveforms = [] # Order is [ecg, ppg]
     if load_ecg is True:
-        ecg = load_physio(inpdir, ftype="ECG")[index,:] # First ECG
+        # ecg = load_physio(inpdir, ftype="ECG")[index,:] # First ECG
+        ecg = load_physio(inpdir, ftype="ECG3").squeeze()
         ecg_crop = crop_physio(ecg, bpt_len, tr_phys=tr_ecg, from_front=from_front)
         phys_waveforms.append(ecg_crop)
     if load_ppg is True:
